@@ -1,0 +1,39 @@
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class CombineUsernames {
+    public static void main(String[] args) {
+        String[] filePaths = {
+            "path/to/your/first.csv",
+            "path/to/your/second.csv",
+            // Add paths to all your CSV files
+        };
+
+        List<String> allUsernames = new ArrayList<>();
+
+        for (String filePath : filePaths) {
+            try (Stream<String> stream = Files.lines(Paths.get(filePath))) {
+                List<String> usernames = stream
+                    .skip(1) // Skip the header
+                    .map(line -> line.split(",")[0]) // Extract username
+                    .collect(Collectors.toList());
+
+                allUsernames.addAll(usernames);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // If you specifically need an array
+        String[] usernamesArray = allUsernames.toArray(new String[0]);
+
+        // For demonstration, let's print the usernames
+        for (String username : usernamesArray) {
+            System.out.println(username);
+        }
+    }
+}
