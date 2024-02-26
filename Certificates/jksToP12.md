@@ -1,4 +1,4 @@
-Certainly! To import a `.jks` (Java KeyStore) into a `.p12` (PKCS12 format) certificate, you'll first need to ensure you have the Java Development Kit (JDK) installed, as it provides the keytool utility necessary for working with Java KeyStores. Here's a step-by-step guide formatted in GitHub style markdown:
+To import a `.jks` (Java KeyStore) into a `.p12` (PKCS12 format) certificate, you'll first need to ensure you have the Java Development Kit (JDK) installed, as it provides the keytool utility necessary for working with Java KeyStores. Here's a step-by-step guide formatted in GitHub style markdown:
 
 ```markdown
 # Importing a JKS into a P12 Certificate
