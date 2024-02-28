@@ -1,0 +1,16 @@
+package util;
+
+public class XYZ {
+    private String someField;
+    private int anotherField;
+
+    // Constructor, getters and setters
+
+    @Override
+    public String toString() {
+        return "XYZ{" +
+                "someField='" + someField + '\'' +
+                ", anotherField=" + anotherField +
+                '}';
+    }
+}
