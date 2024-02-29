@@ -1,0 +1,15 @@
+List<String> usernames = // assume this is your list of usernames
+String targetUsername = "givenUsername"; // replace "givenUsername" with the actual username from where you want to start processing
+boolean found = false;
+
+for (String username : usernames) {
+    if (!found) {
+        if (username.equals(targetUsername)) {
+            found = true; // Set the flag to true when the target username is found
+        } else {
+            continue; // Skip the rest of the loop and move to the next iteration
+        }
+    }
+    
+    // Your processing logic here, this part will be executed only after the target username is found
+}
