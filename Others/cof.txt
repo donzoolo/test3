@@ -1,0 +1,146 @@
+JMeter Script Parameters Documentation for Performance Testing
+This comprehensive documentation provides an overview of the configurable parameters within the JMeter script designed for performance testing. It outlines how these parameters can be adjusted to simulate various operational scenarios, thereby enabling a thorough assessment of system performance under different conditions.
+
+JMeter Script Parameters Documentation
+This documentation outlines the configurable parameters for the JMeter performance testing script. These parameters allow for customization of the testing environment to simulate various scenarios and assess the performance of the system under test.
+
+1. Message Injection Modes
+The script supports two primary modes of message injection to simulate different testing scenarios. At least one of these modes must be selected for the test to run.
+
+a. Standard Injection Mode (messageInjectionModeStandard)
+Type: Boolean
+Description: When enabled, the script uses a standard set of approximately 3000 institutions for message injection. This mode is intended for regular performance testing under standard operating conditions.
+Usage: Select this mode to simulate a typical load on the system with a diverse set of standard institutions.
+b. Anomaly Injection Mode (messageInjectionModeAnomaly)
+Type: Boolean
+Description: When enabled, alongside the standard set of institutions, an additional 5 dedicated AS (Anomaly Simulation) institutions are included in the test. This is specifically designed to trigger AS rule-based scenarios and simulate anomalous conditions.
+Usage: Select this mode to assess the system's performance under atypical or stress conditions, particularly to evaluate how well the system handles anomalies.
+2. FIN vs ISO Message Ratio (FinVsIsoRatio)
+Type: Numeric (0 to 100)
+Description: This parameter determines the distribution of message types injected during the test. The value set here specifies the percentage (%) of messages that will follow the FIN flow (e.g., MT103, MT202, MT202COV messages). The remaining percentage will automatically be allocated to the ISO flow (e.g., pacs.004, pacs.008, pacs.009 messages).
+Usage:
+100: Only messages following the FIN flow will be injected, effectively disabling the ISO flow.
+0: Only messages following the ISO flow will be injected, disabling the FIN flow.
+1-99: Both FIN and ISO flows will be enabled, with the distribution of messages between the two flows determined by the specified ratio.
+Usage Guidelines
+Ensure that at least one of the message injection modes is selected before initiating the test. These modes can be used independently or in conjunction to simulate various testing scenarios.
+Adjust the FinVsIsoRatio parameter according to the specific testing requirements to simulate different distributions of message flows.
+By configuring these parameters, testers can tailor the performance testing process to closely mimic the desired testing environment, providing valuable insights into the system's behavior under various conditions.
+
+FIN Flow Message Distribution Parameters
+When the FinVsIsoRatio parameter is set to enable the FIN flow (i.e., any value except 0), the following parameters determine the specific distribution of FIN message types:
+
+1. MT103 Message Percentage (messagePercantageFinMt103)
+Type: Numeric (0 to 100)
+Description: Specifies the percentage (%) of FIN messages that will be of type MT103 during the test.
+Constraints: Must be a part of a trio of parameters that sum to 100% when combined with messagePercantageFINMt202 and messagePercantageFINMt202COV.
+2. MT202 Message Percentage (messagePercantageFINMt202)
+Type: Numeric (0 to 100)
+Description: Specifies the percentage (%) of FIN messages that will be of type MT202 during the test.
+Constraints: Must be combined with the other two FIN message type parameters to sum to 100%.
+3. MT202COV Message Percentage (messagePercantageFINMt202COV)
+Type: Numeric (0 to 100)
+Description: Specifies the percentage (%) of FIN messages that will be of type MT202COV during the test.
+Constraints: This parameter completes the trio that must collectively sum to 100%.
+ISO Flow Message Distribution Parameters
+When the FinVsIsoRatio parameter is set to enable the ISO flow (i.e., any value except 100), the following parameters determine the specific distribution of ISO message types:
+
+1. pacs.004 Message Percentage (messagePercantageIsoPacs004)
+Type: Numeric (0 to 100)
+Description: Specifies the percentage (%) of ISO messages that will be of type pacs.004 during the test.
+Constraints: Must be a part of a trio of parameters that sum to 100% when combined with messagePercantageIsoPacs008 and messagePercantageIsoPacs009.
+2. pacs.008 Message Percentage (messagePercantageIsoPacs008)
+Type: Numeric (0 to 100)
+Description: Specifies the percentage (%) of ISO messages that will be of type pacs.008 during the test.
+Constraints: Must be combined with the other two ISO message type parameters to sum to 100%.
+3. pacs.009 Message Percentage (messagePercantageIsoPacs009)
+Type: Numeric (0 to 100)
+Description: Specifies the percentage (%) of ISO messages that will be of type pacs.009 during the test.
+Constraints: This parameter completes the trio that must collectively sum to 100%.
+Parameter Constraints and Validation
+The sum of messagePercantageFinMt103, messagePercantageFINMt202, and messagePercantageFINMt202COV must equal 100% to ensure a valid distribution of FIN messages.
+Similarly, the sum of messagePercantageIsoPacs004, messagePercantageIsoPacs008, and messagePercantageIsoPacs009 must equal 100% for a valid distribution of ISO messages.
+It is crucial for users to manually verify that the specified percentages for each set of message types adhere to these constraints, as Jenkins does not automatically validate the correctness of these values.
+Usage Guidelines
+When configuring the script for a test run, users must carefully calculate and assign values to these parameters to reflect the desired distribution of message types within the FIN and ISO flows. This flexibility allows for a wide range of testing scenarios, from evaluating the system's handling of standard operations to its response to complex, mixed, or anomalous message flows.
+
+Batch Processing and Alert Configuration Parameters
+This section covers the parameters that define how messages are batched and processed, as well as how alerts are generated during the test.
+
+1. Batch Size Configuration (howManyNonAlertedMessagesInABatch)
+Type: Numeric
+Default Value: 9
+Description: This parameter determines the size of the message batches sent during the test. The batch size is calculated as 1 plus the value of this parameter. The first message in each batch is designed to trigger a hit (alert), with the remaining messages in the batch (as specified by this parameter) not triggering hits.
+Usage: By adjusting this parameter, testers can control the alert hit rate within the test. For example, a value of 9 results in a batch size of 10 messages, where 1 message is expected to trigger an alert, setting the hit rate at 10%.
+2. Alert Creation Toggle (createAlerts)
+Type: Boolean
+Default Value: Selected (True)
+Description: This checkbox parameter determines whether the injected messages should trigger alerts within the system. Alerts are generated based on a subset of currency rules defined for the test.
+Usage: Unchecking this option (setting it to False) is useful for scenarios where the focus is on testing the message injection mechanism itself, without generating alerts in the system. This can be particularly useful for testing components like Kafka without the overhead of alert processing.
+3. Portal Actions Execution Toggle (executePortalActions)
+Type: Boolean
+Default Value: Selected (True)
+Description: When selected, this parameter ensures that user actions on generated alerts (if any) are simulated as part of the test, providing a more comprehensive assessment of the system's performance under user interaction loads.
+Usage: Unchecking this box (setting it to False) is recommended when the objective is to exclusively test the message injection and batch processing capabilities of the system, without simulating user interactions with the generated alerts. This can help isolate and evaluate the performance of the message processing component of the system.
+Usage Guidelines
+The howManyNonAlertedMessagesInABatch parameter allows testers to fine-tune the load and nature of the messages being injected, offering flexibility in simulating various operational scenarios.
+The createAlerts and executePortalActions checkboxes provide testers with the ability to tailor the test scope. By enabling or disabling these options, one can focus on specific aspects of the system, such as message throughput, alert generation logic, or the system's response to user interactions with alerts.
+By thoughtfully configuring these parameters, testers can create a wide range of test scenarios, from stress testing the system with a high volume of alerts to focusing solely on the efficiency and reliability of the message injection process.
+
+
+Message Throughput Configuration
+This section details the parameters that control the number of message batches sent per hour for different institution sizes/types. These configurations help simulate a variety of institutional behaviors observed in production environments.
+
+Throughput Parameters by Institution Size/Type
+throughput_big_fast (Default: 780): Batches per hour for large, fast-processing institutions.
+throughput_medium_fast (Default: 1460): Batches per hour for medium-sized, fast-processing institutions.
+throughput_small_fast (Default: 7810): Batches per hour for small, fast-processing institutions.
+throughput_big_slow (Default: 1170): Batches per hour for large, slow-processing institutions.
+throughput_medium_slow (Default: 2050): Batches per hour for medium-sized, slow-processing institutions.
+throughput_small_slow (Default: 11720): Batches per hour for small, slow-processing institutions.
+Calculating Messages Per Hour
+To estimate the total number of messages sent per hour for each institution size/type:
+
+Multiply the throughput value (batches per hour) by the batch size (1 + howManyNonAlertedMessagesInABatch parameter value).
+Sum the results across all institution types to get the total messages per hour.
+Determining Transactions Per Second (TPS)
+To calculate the expected TPS:
+
+Add up the throughput values for all institution sizes/types.
+Multiply the sum by the batch size (as calculated above).
+Divide the result by 3600 seconds (the number of seconds in an hour) to obtain the TPS.
+Example Calculation with Default Values
+Using the default parameter values and a howManyNonAlertedMessagesInABatch value of 9 (resulting in a batch size of 10):
+
+Sum of throughput values: 
+780
++
+1460
++
+7810
++
+1170
++
+2050
++
+11720
+=
+24990
+780+1460+7810+1170+2050+11720=24990 batches per hour.
+Total messages per hour: 
+24990
+×
+10
+=
+249900
+24990×10=249900 messages.
+Expected TPS: 
+249900
+÷
+3600
+≈
+69.42
+249900÷3600≈69.42 TPS.
+Usage Guidelines
+Adjusting these throughput parameters allows testers to closely simulate the message traffic characteristics of different institution types as observed in production, facilitating realistic and meaningful performance testing.
+By understanding and configuring the expected TPS, testers can ensure that the system is capable of handling the anticipated load, thereby identifying potential bottlenecks and scalability issues.
