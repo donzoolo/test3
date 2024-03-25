@@ -1,0 +1,40 @@
+Step 1: Create the PowerShell Script
+Open your text editor or PowerShell ISE.
+Paste the following script into the editor:
+powershell
+Copy code
+# Define paths
+$templatePath = "C:\temp\temp1\template.txt"
+$outputFolder = "C:\temp\temp2\"
+
+# Read the content of the template file
+$templateContent = Get-Content -Path $templatePath
+
+# Replace %TEMP% with the current timestamp
+$currentTimestamp = Get-Date -Format "yyyyMMddHHmmss"
+$modifiedContent = $templateContent -replace "%TEMP%", $currentTimestamp
+
+# Define the output file path with a unique name using the timestamp
+$outputFilePath = $outputFolder + "Modified_" + $currentTimestamp + ".txt"
+
+# Write the modified content to a new file in the output folder
+$modifiedContent | Out-File -FilePath $outputFilePath
+
+# Output the path of the created file for confirmation
+Write-Output "File created at: $outputFilePath"
+Save this file with a .ps1 extension, for example, ModifyAndCopyFile.ps1.
+Step 2: Test the PowerShell Script
+Before scheduling the script, it's a good idea to run it manually to ensure it works as expected.
+
+Open PowerShell.
+Navigate to the directory where your script is saved using the cd command.
+Execute the script by typing .\ModifyAndCopyFile.ps1 and pressing Enter. Check the C:\temp\temp2\ directory to ensure the file was created correctly.
+Step 3: Schedule the PowerShell Script with Task Scheduler
+Open Task Scheduler: You can search for "Task Scheduler" in the Start menu and open it.
+Create a New Task: In the Actions pane on the right, click "Create Task...".
+General Tab: Provide a name and description for the task. Make sure "Run whether user is logged on or not" is selected and check "Run with highest privileges".
+Triggers Tab: Click "New..." to create a new trigger. Set "Begin the task" to "On a schedule", and configure it to run "Daily". Then, click on "Repeat task every:" and select "1 minute" for a duration of "Indefinitely". Click "OK" when done.
+Actions Tab: Click "New..." to create a new action. Set "Action" to "Start a program". In "Program/script", enter "powershell.exe". In "Add arguments (optional)", enter -ExecutionPolicy Bypass -File "FullPathToYourScript\ModifyAndCopyFile.ps1", replacing FullPathToYourScript with the actual path to your script. Click "OK" when done.
+Conditions and Settings Tabs: Adjust these according to your preferences, although the default settings should suffice for most scenarios.
+Click "OK" to save the task. You might be prompted to enter your user credentials to allow the task to run.
+Your script is now scheduled to run every minute, reading the template, replacing %TEMP% with the current timestamp, and saving it in the specified directory with a unique name. Ensure that your system's power settings allow it to wake or remain awake to execute the task as scheduled.
