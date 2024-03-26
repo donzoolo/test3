@@ -38,3 +38,62 @@ Actions Tab: Click "New..." to create a new action. Set "Action" to "Start a pro
 Conditions and Settings Tabs: Adjust these according to your preferences, although the default settings should suffice for most scenarios.
 Click "OK" to save the task. You might be prompted to enter your user credentials to allow the task to run.
 Your script is now scheduled to run every minute, reading the template, replacing %TEMP% with the current timestamp, and saving it in the specified directory with a unique name. Ensure that your system's power settings allow it to wake or remain awake to execute the task as scheduled.
+
+
+
+
+
+=====
+
+
+# Define the root directory where the script and configuration file are located
+$RootDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Load configurations from the properties file
+$ConfigPath = Join-Path -Path $RootDir -ChildPath "configuration.properties"
+$Configurations = @{}
+Get-Content $ConfigPath | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -ne "" -and !$line.StartsWith("#")) {
+        $key, $value = $line -split '=', 2
+        $Configurations[$key] = $value.Trim()
+    }
+}
+
+# Function to generate a unique string of a given length
+function Generate-UniqueString($length) {
+    $chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz"
+    $random = New-Object System.Random
+    $uniqueString = ''
+    for ($i = 0; $i -lt $length; $i++) {
+        $uniqueString += $chars[$random.Next($chars.Length)]
+    }
+    return $uniqueString
+}
+
+# Function to process files in a directory
+function Process-Files($Path) {
+    Get-ChildItem $Path -Filter *.txt | ForEach-Object {
+        $filePath = $_.FullName
+        $content = Get-Content $filePath -Raw
+
+        # Replace configurations
+        foreach ($key in $Configurations.Keys) {
+            $content = $content -replace "%$key%", $Configurations[$key]
+        }
+
+        # Replace unique strings
+        $content = $content -replace "%UNIQUE_(\d+)%", { Generate-UniqueString($matches[1]) }
+
+        # Write the updated content to a new file in the target directory
+        $targetFilePath = Join-Path -Path $Configurations["targetDir"] -ChildPath $_.Name
+        $content | Set-Content $targetFilePath
+
+        # Log the action
+        "$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss')): Updated and copied `'$filePath`' to `'$targetFilePath`'" | Out-File -FilePath "$RootDir\log.txt" -Append
+    }
+}
+
+# Process files in the FIN and ISO directories
+Process-Files (Join-Path -Path $RootDir -ChildPath "FIN")
+Process-Files (Join-Path -Path $RootDir -ChildPath "ISO")
