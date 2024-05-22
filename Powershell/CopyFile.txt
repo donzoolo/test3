@@ -80,6 +80,16 @@ function Process-Files($Path) {
         # Replace configurations
         foreach ($key in $Configurations.Keys) {
             $content = $content -replace "%$key%", $Configurations[$key]
+			
+			# Lowercase replacement
+            $lowercaseKey = "%$key`_LOWERCASE%"
+            $lowercaseValue = $Configurations[$key].ToLower()
+            $content = $content -replace $lowercaseKey, $lowercaseValue
+
+            # Uppercase replacement
+            $uppercaseKey = "%$key`_UPPERCASE%"
+            $uppercaseValue = $Configurations[$key].ToUpper()
+            $content = $content -replace $uppercaseKey, $uppercaseValue
         }
 
         # Replace unique strings
