@@ -91,7 +91,12 @@ function Process-Files($Path) {
             $uppercaseValue = $Configurations[$key].ToUpper()
             $content = $content -replace $uppercaseKey, $uppercaseValue
         }
-
+        # Replace %RANDOM_NUMBER_X% with a random number where X is the digit count
+        while ($content -match "%RANDOM_NUMBER_(\d+)%") {
+            $digitCount = $matches[1]
+            $randomNumber = Generate-RandomNumber $digitCount
+            $content = $content -replace "%RANDOM_NUMBER_$digitCount%", $randomNumber
+        }
         # Replace unique strings
         $content = $content -replace "%UNIQUE_(\d+)%", { Generate-UniqueString($matches[1]) }
 
