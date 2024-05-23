@@ -59,7 +59,13 @@ Get-Content $ConfigPath | ForEach-Object {
         $Configurations[$key] = $value.Trim()
     }
 }
-
+# Define a function to generate a random number of a specified length
+function Generate-RandomNumber($length) {
+    $random = New-Object System.Random
+    $min = [math]::Pow(10, $length - 1)  # Minimum is 10^(length-1) (e.g., 100 for length 3)
+    $max = [math]::Pow(10, $length) - 1  # Maximum is 10^length - 1 (e.g., 999 for length 3)
+    return $random.Next($min, $max)
+}
 # Function to generate a unique string of a given length
 function Generate-UniqueString($length) {
     $chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz"
