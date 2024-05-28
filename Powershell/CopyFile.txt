@@ -118,3 +118,49 @@ function Process-Files($Path) {
 # Process files in the FIN and ISO directories
 Process-Files (Join-Path -Path $RootDir -ChildPath "FIN")
 Process-Files (Join-Path -Path $RootDir -ChildPath "ISO")
+
+
+
+
+
+
+
+
+
+============
+
+$ConfigPath = Join-Path -Path $RootDir -ChildPath "configuration.properties"
+$Configurations = @{}
+Get-Content $ConfigPath | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -ne "" -and !$line.StartsWith("#")) {
+        $key, $value = $line -split '=', 2
+        $Configurations[$key] = $value.Trim()
+    }
+}
+
+
+function Get-ConfigValue($key) {
+    $value = $Configurations[$key]
+    if ($value -contains ',') {
+        $values = $value -split ','
+        $random = New-Object System.Random
+        return $values[$random.Next($values.Length)]
+    } else {
+        return $value
+    }
+}
+
+# Function to process files in a directory with a specified extension
+function Process-Files($Path, $Extension) {
+    Get-ChildItem -Path $Path -Filter "*.$Extension" | ForEach-Object {
+        $filePath = $_.FullName
+        $content = Get-Content $filePath -Raw
+
+        # Replace configurations with support for multiple options
+        foreach ($key in $Configurations.Keys) {
+            $valueToReplace = Get-ConfigValue $key
+            $content = $content -replace "%$key%", $valueToReplace
+            $content = $content -replace "%$key_LOWERCASE%", $valueToReplace.ToLower()
+            $content = $content -replace "%$key_UPPERCASE%", $valueToReplace.ToUpper()
+        }
