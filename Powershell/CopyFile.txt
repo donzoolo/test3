@@ -184,3 +184,32 @@ function Process-Files($Path, $Extension) {
             $placeholder = "%YYYY-MM-DD+$daysToAdd" + "D%"
             $content = $content -replace [regex]::Escape($placeholder), $newDate
         }
+		
+		
+		
+		function Process-Files($Path, $Extension) {
+    Get-ChildItem -Path $Path -Filter "*.$Extension" | ForEach-Object {
+        $filePath = $_.FullName
+        $content = Get-Content $filePath -Raw
+
+        # Handling all your replacements
+        # ...
+
+        # Generate a random string to append to the filename
+        $randomString = Generate-RandomString 8  # You can adjust the length as needed
+
+        # Extract the file extension and prepend the random string before the extension
+        $fileExtension = [System.IO.Path]::GetExtension($filePath)
+        $fileNameWithoutExtension = [System.IO.Path]::GetFileNameWithoutExtension($filePath)
+        $newFileName = "$fileNameWithoutIdWithoutExtension`_$randomString$fileExtension"
+        $targetFilePath = Join-Path -Path $Configurations["targetDir"] -ChildPath $newFileName
+
+        # Write the updated content to a new file in the target directory
+        $content | Set-Content $targetUnable to render content: the payload exceeds 50 characters limitFilePath
+
+        # Log the action
+        "$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss')): Updated and copied `'$filePath`' to `'$targetFilePath`'" | Out-File -FilePath "$RootDir\log.txt" -Append
+        Write-Host "Processed file: $filePath with random identifier: $randomString"
+    }
+}
+Explan
