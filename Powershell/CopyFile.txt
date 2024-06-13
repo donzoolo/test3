@@ -165,12 +165,15 @@ function Process-Files($Path, $Extension) {
             $content = $content -replace "%$key_UPPERCASE%", $valueToReplace.ToUpper()
         }
 		
-		
-        # Handle date replacements with offset, e.g., %YYYY-MM-DD+1D%
+        # Handle date replacements with offset, ensuring the loop terminates
         while ($content -match "%YYYY-MM-DD(\+[0-9]+)D%") {
-            $offset = $matches[1]  # Capture the full match of the offset including '+'
-            $offsetDays = [int]$offset.Replace("D", "")  # Extract number of days from the offset
+            $offset = $matches[1]
+            $offsetDays = [int]($offset -replace "D", "")  # Correctly extract the integer days value
             $newDate = (Get-Date).AddDays($offsetDays).ToString('yyyy-MM-dd')
-            $placeholder = "%YYYY-MM-DD$offset%"  # Recreate the placeholder that was found
+            $placeholder = "%YYYY-MM-DD$offset%"  # This is the text to replace
             $content = $content -replace [regex]::Escape($placeholder), $newDate
+
+            if (-not ($content -match "%YYYY-MM-DD(\+[0-9]+)D%")) {
+                break  # Exit the loop if no more matches are found
+            }
         }
