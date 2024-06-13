@@ -177,3 +177,10 @@ function Process-Files($Path, $Extension) {
                 break  # Exit the loop if no more matches are found
             }
         }
+        # Date replacements with explicit day additions
+        while ($content -match "%YYYY-MM-DD\+(\d+)D%") {
+            $daysToAdd = [int]$matches[1]
+            $newDate = (Get-Date).AddDays($daysToAdd).ToString('yyyy-MM-dd')
+            $placeholder = "%YYYY-MM-DD+$daysToAdd" + "D%"
+            $content = $content -replace [regex]::Escape($placeholder), $newDate
+        }
