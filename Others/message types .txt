@@ -39,8 +39,9 @@ counts2=$(grep -E 'BATCH BIC|FIN BATCH BIC' "$logfile" | awk '
                 split(fields[i], pair, ": ")
                 type = pair[1]
                 value = pair[2]
-                type=$(echo "$type" | sed "s/004/PACS004/;s/008/PACS008/;s/009/PACS009/")
+                type=$(echo "$type" | sed 's/004/PACS004/;s/008/PACS008/;s/009/PACS009/')
                 count[type] += value
+                print "Processed: " type " = " count[type] # Debug output
             }
         }
     }
