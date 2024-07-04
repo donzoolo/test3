@@ -1,12 +1,3 @@
-In JUnit 5, TestWatcher interface does not have a method testStarted. Instead, you need to override the appropriate methods for logging. Here's the corrected approach:
-
-Create a Custom TestWatcher Extension: Implement the TestWatcher interface correctly.
-Register the Extension in the Base Test Class: Use the @ExtendWith annotation in the base test class.
-Step 1: Create a Custom TestWatcher Extension
-Create a custom extension that implements TestWatcher and logs messages before and after each test method.
-
-java
-Skopiuj kod
 import org.junit.jupiter.api.extension.BeforeTestExecutionCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestWatcher;
@@ -23,89 +14,45 @@ public class LoggingTestWatcherExtension implements TestWatcher, BeforeTestExecu
     @Override
     public void beforeTestExecution(ExtensionContext context) {
         int testId = testCounter.incrementAndGet();
-        logger.info("Test [{} - {}]: {} starting", testId, Thread.currentThread().getName(), context.getDisplayName());
+        logMessage(context, "starting", testId);
     }
 
     @Override
     public void testSuccessful(ExtensionContext context) {
-        logTestFinish(context, "successful");
+        logMessage(context, "successful");
     }
 
     @Override
     public void testFailed(ExtensionContext context, Throwable cause) {
-        logTestFinish(context, "failed");
+        logMessage(context, "failed");
     }
 
     @Override
     public void testAborted(ExtensionContext context, Throwable cause) {
-        logTestFinish(context, "aborted");
+        logMessage(context, "aborted");
     }
 
     @Override
     public void testDisabled(ExtensionContext context, Optional<String> reason) {
-        logTestFinish(context, "disabled");
+        logMessage(context, "disabled");
     }
 
-    private void logTestFinish(ExtensionContext context, String status) {
+    private void logMessage(ExtensionContext context, String status) {
         int testId = testCounter.get();
-        logger.info("Test [{} - {}]: {} finished with status: {}", testId, Thread.currentThread().getName(), context.getDisplayName(), status);
-    }
-}
-Step 2: Register the Extension in the Base Test Class
-Use the @ExtendWith annotation to apply the extension to the base test class.
-
-java
-Skopiuj kod
-import org.junit.jupiter.api.extension.ExtendWith;
-
-@ExtendWith(LoggingTestWatcherExtension.class)
-public class ITTest {
-    // Common setup for all tests can be placed here
-}
-Step 3: Example Test Classes
-Ensure your test classes extend ITTest.
-
-java
-Skopiuj kod
-import org.junit.jupiter.api.Test;
-
-public class MyTest extends ITTest {
-
-    @Test
-    public void testExample() {
-        // Your test code here
-        System.out.println("Executing testExample");
+        logMessage(context, status, testId);
     }
 
-    @Test
-    public void anotherTest() {
-        // Your test code here
-        System.out.println("Executing anotherTest");
+    private void logMessage(ExtensionContext context, String status, int testId) {
+        String message = String.format("Test [%d - %s]: %s %s", testId, Thread.currentThread().getName(), context.getDisplayName(), status);
+        String border = createBorder(message.length());
+        logger.info("\n{}\n= {} =\n{}", border, message, border);
+    }
+
+    private String createBorder(int length) {
+        StringBuilder border = new StringBuilder("=");
+        for (int i = 0; i < length + 4; i++) { // +4 to account for the spaces and " ="
+            border.append("=");
+        }
+        return border.toString();
     }
 }
-Explanation
-LoggingTestWatcherExtension:
-
-Implements TestWatcher to log messages after each test method.
-Implements BeforeTestExecutionCallback to log messages before each test method starts.
-Uses beforeTestExecution to log before a test starts.
-Uses testSuccessful, testFailed, testAborted, and testDisabled to log after a test finishes, regardless of the outcome.
-Includes a unique identifier and thread name in the log messages to handle parallel execution.
-ITTest Class:
-
-Annotated with @ExtendWith(LoggingTestWatcherExtension.class) to apply the extension to all derived test classes.
-Test Classes:
-
-Any test class that extends ITTest will automatically log messages before and after each test method execution.
-Parallel Execution
-To run tests in parallel with JUnit 5, you can configure the junit-platform.properties file or use a build tool configuration.
-
-Example: junit-platform.properties
-Create a file named junit-platform.properties in src/test/resources:
-
-properties
-Skopiuj kod
-junit.jupiter.execution.parallel.enabled = true
-junit.jupiter.execution.parallel.mode.default = concurrent
-junit.jupiter.execution.parallel.config.strategy = dynamic
-This setup ensures that your tests run in parallel while maintaining clear and organized log output, thanks to the inclusion of thread names and unique test identifiers. This way, you can trace the execution of individual tests even when they run concurrently.
