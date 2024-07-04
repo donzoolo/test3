@@ -1,59 +1,75 @@
-Running tests in parallel can indeed complicate logging because concurrent tests can lead to interleaved log messages, making it hard to follow the sequence of events for individual tests. However, SLF4J and Logback are thread-safe, so you can still use them effectively in a parallel testing environment.
+Yes, you can achieve similar logging in JUnit 5 (JUnit Jupiter) by using TestWatcher as an extension. JUnit 5 provides a more flexible extension model that can be used to accomplish this task.
 
-To handle parallel execution and ensure clear, readable logs for each test, consider using the following strategies:
+Here's how you can do it:
 
-Use Thread Context Information: Add thread context information to the log messages.
-Use Unique Identifiers for Each Test Execution: Include unique identifiers in the log messages to distinguish between different test runs.
-Here’s how you can enhance the LoggingTestWatcher to include thread context and unique identifiers in the log messages.
-
-Step 1: Enhance LoggingTestWatcher
-Enhance the LoggingTestWatcher to log thread names and unique identifiers for each test method.
+Step-by-Step Implementation
+Create a Custom TestWatcher Extension: Create a class that implements TestWatcher and uses SLF4J for logging.
+Register the Extension in the Base Test Class: Use the @ExtendWith annotation in the base test class to apply the custom extension to all test classes that extend the base class.
+Step 1: Create a Custom TestWatcher Extension
+Create a custom extension that implements TestWatcher and logs messages before and after each test method.
 
 java
 Skopiuj kod
-import org.junit.rules.TestWatcher;
-import org.junit.runner.Description;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.TestWatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class LoggingTestWatcher extends TestWatcher {
-    private static final Logger logger = LoggerFactory.getLogger(LoggingTestWatcher.class);
+public class LoggingTestWatcherExtension implements TestWatcher {
+    private static final Logger logger = LoggerFactory.getLogger(LoggingTestWatcherExtension.class);
     private static final AtomicInteger testCounter = new AtomicInteger(0);
 
     @Override
-    protected void starting(Description description) {
-        int testId = testCounter.incrementAndGet();
-        logger.info("Test [{} - {}]: {} starting", testId, Thread.currentThread().getName(), description.getMethodName());
+    public void testSuccessful(ExtensionContext context) {
+        logTestFinish(context, "successful");
     }
 
     @Override
-    protected void finished(Description description) {
+    public void testFailed(ExtensionContext context, Throwable cause) {
+        logTestFinish(context, "failed");
+    }
+
+    @Override
+    public void testAborted(ExtensionContext context, Throwable cause) {
+        logTestFinish(context, "aborted");
+    }
+
+    @Override
+    public void testDisabled(ExtensionContext context, Optional<String> reason) {
+        logTestFinish(context, "disabled");
+    }
+
+    @Override
+    public void testStarted(ExtensionContext context) {
         int testId = testCounter.incrementAndGet();
-        logger.info("Test [{} - {}]: {} finished", testId, Thread.currentThread().getName(), description.getMethodName());
+        logger.info("Test [{} - {}]: {} starting", testId, Thread.currentThread().getName(), context.getDisplayName());
+    }
+
+    private void logTestFinish(ExtensionContext context, String status) {
+        int testId = testCounter.get();
+        logger.info("Test [{} - {}]: {} finished with status: {}", testId, Thread.currentThread().getName(), context.getDisplayName(), status);
     }
 }
-Step 2: Base Test Class (ITTest)
-Use the enhanced LoggingTestWatcher in your base test class (ITTest).
+Step 2: Register the Extension in the Base Test Class
+Use the @ExtendWith annotation to apply the extension to the base test class.
 
 java
 Skopiuj kod
-import org.junit.Rule;
-import org.junit.rules.TestWatcher;
-import org.junit.rules.TestRule;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(LoggingTestWatcherExtension.class)
 public class ITTest {
-
-    @Rule
-    public TestRule watchman = new LoggingTestWatcher();
+    // Common setup for all tests can be placed here
 }
 Step 3: Example Test Classes
 Ensure your test classes extend ITTest.
 
 java
 Skopiuj kod
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class MyTest extends ITTest {
 
@@ -70,34 +86,27 @@ public class MyTest extends ITTest {
     }
 }
 Explanation
-LoggingTestWatcher:
+LoggingTestWatcherExtension:
 
-The testCounter is a static AtomicInteger that provides a unique identifier for each test method.
-The starting method logs a message before each test starts, including the unique test identifier and the thread name.
-The finished method logs a message after each test finishes, including the unique test identifier and the thread name.
+Implements TestWatcher to log messages before and after each test method.
+Uses testStarted to log before a test starts.
+Uses testSuccessful, testFailed, testAborted, and testDisabled to log after a test finishes, regardless of the outcome.
+Includes a unique identifier and thread name in the log messages to handle parallel execution.
 ITTest Class:
 
-The LoggingTestWatcher is added as a @Rule in the ITTest class, ensuring that all test classes extending ITTest will have the logging applied.
+Annotated with @ExtendWith(LoggingTestWatcherExtension.class) to apply the extension to all derived test classes.
 Test Classes:
 
 Any test class that extends ITTest will automatically log messages before and after each test method execution.
 Parallel Execution
-To run tests in parallel with JUnit, you can configure your build tool accordingly. For example, with Maven, you can configure the maven-surefire-plugin:
+To run tests in parallel with JUnit 5, you can configure the junit-platform.properties file or use a build tool configuration.
 
-Maven Configuration for Parallel Tests
-xml
+Example: junit-platform.properties
+Create a file named junit-platform.properties in src/test/resources:
+
+properties
 Skopiuj kod
-<build>
-    <plugins>
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-surefire-plugin</artifactId>
-            <version>2.22.2</version>
-            <configuration>
-                <parallel>methods</parallel>
-                <threadCount>4</threadCount>
-            </configuration>
-        </plugin>
-    </plugins>
-</build>
-This setup allows you to run tests in parallel while maintaining clear and organized log output, thanks to the inclusion of thread names and unique test identifiers. This way, you can trace the execution of individual tests even when they run concurrently.
+junit.jupiter.execution.parallel.enabled = true
+junit.jupiter.execution.parallel.mode.default = concurrent
+junit.jupiter.execution.parallel.config.strategy = dynamic
+This setup ensures that your tests run in parallel while maintaining clear and organized log output, thanks to the inclusion of thread names and unique test identifiers. This way, you can trace the execution of individual tests even when they run concurrently.
