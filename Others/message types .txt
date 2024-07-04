@@ -1,6 +1,12 @@
-#!/bin/bash
-
-logfile="logfile.log"
+# Normalize types for consistency
+normalize_type() {
+    local type="$1"
+    type=$(echo "$type" | tr -d ' ') # Remove spaces
+    type=$(echo "$type" | sed 's/^004$/PACS004/')
+    type=$(echo "$type" | sed 's/^008$/PACS008/')
+    type=$(echo "$type" | sed 's/^009$/PACS009/')
+    echo "$type"
+}
 
 # Process 1st type of logs
 echo "Counts for 1st type of logs:"
@@ -29,9 +35,7 @@ counts2=$(grep -E 'BATCH BIC|FIN BATCH BIC' "$logfile" | awk '
                 split(fields[i], pair, ": ")
                 type = pair[1]
                 value = pair[2]
-                gsub("004", "PACS004", type)
-                gsub("008", "PACS008", type)
-                gsub("009", "PACS009", type)
+                type=$(echo "$type" | sed 's/004/PACS004/;s/008/PACS008/;s/009/PACS009/')
                 count[type] += value
             }
         }
@@ -47,7 +51,7 @@ echo "$counts2"
 # Function to sum counts from both logs
 sum_counts() {
     local type="$1"
-    local normalized_type=$(echo "$type" | tr -d ' ') # Normalize type by removing spaces
+    local normalized_type=$(normalize_type "$type")
     local count1=$(echo "$counts1" | grep "$normalized_type" | awk -F': ' '{print $2}')
     local count2=$(echo "$counts2" | grep "$normalized_type" | awk -F': ' '{print $2}')
     
@@ -63,7 +67,7 @@ sum_counts() {
         count2=0
     fi
 
-    echo "$count1 + $count2 = $((count1 + count2))" >&2 # Debug output
+    echo "Summing for $normalized_type: $count1 + $count2 = $((count1 + count2))" >&2 # Debug output
     echo $((count1 + count2))
 }
 
