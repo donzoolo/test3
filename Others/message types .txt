@@ -7,6 +7,7 @@ echo "Counts for 1st type of logs:"
 counts1=$(grep 'Sending BIC' "$logfile" | awk '
 {
     if (match($0, /(MT 103|MT 202 COV|MT 202|PACS 004|PACS 008|PACS 009)/, arr)) {
+        gsub(" ", "", arr[1]) # Remove spaces to normalize the log type names
         count[arr[1]]++
     }
 }
@@ -28,6 +29,9 @@ counts2=$(grep -E 'BATCH BIC|FIN BATCH BIC' "$logfile" | awk '
                 split(fields[i], pair, ": ")
                 type = pair[1]
                 value = pair[2]
+                gsub("004", "PACS004", type)
+                gsub("008", "PACS008", type)
+                gsub("009", "PACS009", type)
                 count[type] += value
             }
         }
@@ -43,8 +47,9 @@ echo "$counts2"
 # Function to sum counts from both logs
 sum_counts() {
     local type="$1"
-    local count1=$(echo "$counts1" | grep "$type" | awk -F': ' '{print $2}')
-    local count2=$(echo "$counts2" | grep "$type" | awk -F': ' '{print $2}')
+    local normalized_type=$(echo "$type" | tr -d ' ') # Normalize type by removing spaces
+    local count1=$(echo "$counts1" | grep "$normalized_type" | awk -F': ' '{print $2}')
+    local count2=$(echo "$counts2" | grep "$normalized_type" | awk -F': ' '{print $2}')
     
     # Handle empty values
     count1=${count1:-0}
@@ -64,21 +69,21 @@ sum_counts() {
 
 # Calculate Total Count
 total_count=0
-for type in "MT 103" "MT 202" "MT 202 COV" "PACS 004" "PACS 008" "PACS 009" "MT103" "MT202" "MT202COV" "004" "008" "009"; do
+for type in "MT103" "MT202" "MT202COV" "PACS004" "PACS008" "PACS009"; do
     count=$(sum_counts "$type")
     total_count=$((total_count + count))
 done
 
 # Calculate Count of MT
 mt_count=0
-for type in "MT 103" "MT 202" "MT 202 COV" "MT103" "MT202" "MT202COV"; do
+for type in "MT103" "MT202" "MT202COV"; do
     count=$(sum_counts "$type")
     mt_count=$((mt_count + count))
 done
 
 # Calculate Count of ISO
 iso_count=0
-for type in "PACS 004" "PACS 008" "PACS 009" "004" "008" "009"; do
+for type in "PACS004" "PACS008" "PACS009"; do
     count=$(sum_counts "$type")
     iso_count=$((iso_count + count))
 done
