@@ -1,12 +1,24 @@
 #!/bin/bash
 
 logfile="logfile.log"
+normalized_logfile="normalized_logfile.log"
+
+# Replace types in the log file for consistency
+sed -e 's/MT 103/MT103/g' \
+    -e 's/MT 202 COV/MT202COV/g' \
+    -e 's/MT 202/MT202/g' \
+    -e 's/PACS 004/PACS004/g' \
+    -e 's/PACS 008/PACS008/g' \
+    -e 's/PACS 009/PACS009/g' \
+    -e 's/004:/PACS004:/g' \
+    -e 's/008:/PACS008:/g' \
+    -e 's/009:/PACS009:/g' "$logfile" > "$normalized_logfile"
 
 # Process 1st type of logs
 echo "Counts for 1st type of logs:"
-counts1=$(grep 'Sending BIC' "$logfile" | awk '
+counts1=$(grep 'Sending BIC' "$normalized_logfile" | awk '
 {
-    if (match($0, /(MT 103|MT 202 COV|MT 202|PACS 004|PACS 008|PACS 009)/, arr)) {
+    if (match($0, /(MT103|MT202COV|MT202|PACS004|PACS008|PACS009)/, arr)) {
         count[arr[1]]++
     }
 }
@@ -19,12 +31,12 @@ echo "$counts1"
 
 # Process 2nd type of logs
 echo "Counts for 2nd type of logs:"
-counts2=$(grep -E 'BATCH BIC|FIN BATCH BIC' "$logfile" | awk '
+counts2=$(grep -E 'BATCH BIC|FIN BATCH BIC' "$normalized_logfile" | awk '
 {
-    if (match($0, /(004: [0-9]+|008: [0-9]+|009: [0-9]+|MT103: [0-9]+|MT202: [0-9]+|MT202COV: [0-9]+)/)) {
+    if (match($0, /(PACS004: [0-9]+|PACS008: [0-9]+|PACS009: [0-9]+|MT103: [0-9]+|MT202: [0-9]+|MT202COV: [0-9]+)/)) {
         split($0, fields, ", ")
         for (i in fields) {
-            if (match(fields[i], /(004|008|009|MT103|MT202|MT202COV): [0-9]+/)) {
+            if (match(fields[i], /(PACS004|PACS008|PACS009|MT103|MT202|MT202COV): [0-9]+/)) {
                 split(fields[i], pair, ": ")
                 type = pair[1]
                 value = pair[2]
@@ -63,21 +75,21 @@ sum_counts() {
 
 # Calculate Total Count
 total_count=0
-for type in "MT 103" "MT 202" "MT 202 COV" "PACS 004" "PACS 008" "PACS 009" "MT103" "MT202" "MT202COV" "004" "008" "009"; do
+for type in "MT103" "MT202" "MT202COV" "PACS004" "PACS008" "PACS009"; do
     count=$(sum_counts "$type")
     total_count=$((total_count + count))
 done
 
 # Calculate Count of MT
 mt_count=0
-for type in "MT 103" "MT 202" "MT 202 COV" "MT103" "MT202" "MT202COV"; do
+for type in "MT103" "MT202" "MT202COV"; do
     count=$(sum_counts "$type")
     mt_count=$((mt_count + count))
 done
 
 # Calculate Count of ISO
 iso_count=0
-for type in "PACS 004" "PACS 008" "PACS 009" "004" "008" "009"; do
+for type in "PACS004" "PACS008" "PACS009"; do
     count=$(sum_counts "$type")
     iso_count=$((iso_count + count))
 done
