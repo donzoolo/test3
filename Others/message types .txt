@@ -25,20 +25,22 @@ END {
 echo "Sums for 2nd type of logs:"
 grep -E 'BATCH BIC|FIN BATCH BIC' "$logfile" | awk '
 {
-    if (match($0, /(004: [0-9]+|008: [0-9]+|009: [0-9]+|MT103: [0-9]+|MT202: [0-9]+|MT202COV: [0-9]+)/)) {
-        split($0, fields, ", ")
-        for (i in fields) {
-            split(fields[i], pair, ": ")
-            type = pair[1]
-            value = pair[2]
-            count[type] += value
-        }
-    }
+ if (match($0, /(004: [0-9]+|008: [0-9]+|009: [0-9]+|MT103: [0-9]+|MT202: [0-9]+|MT202COV: [0-9]+)/)) {
+     split($0, fields, ", ")
+     for (i in fields) {
+         if (match(fields[i], /(004|008|009|MT103|MT202|MT202COV): [0-9]+/)) {
+             split(fields[i], pair, ": ")
+             type = pair[1]
+             value = pair[2]
+             count[type] += value
+         }
+     }
+ }
 }
 END {
-    for (type in count) {
-        print type ": " count[type]
-    }
+ for (type in count) {
+     print type ": " count[type]
+ }
 }'
 Execution
 Save the script to a file, e.g., process_logs.sh.
