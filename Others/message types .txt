@@ -58,6 +58,7 @@ sum_counts() {
         count2=0
     fi
 
+    echo "$count1 + $count2 = $((count1 + count2))" >&2 # Debug output
     echo $((count1 + count2))
 }
 
