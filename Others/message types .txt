@@ -1,0 +1,53 @@
+Combined Script
+You can combine these commands into a single script for convenience:
+
+sh
+Skopiuj kod
+#!/bin/bash
+
+logfile="logfile.log"
+
+# Process 1st type of logs
+echo "Counts for 1st type of logs:"
+grep 'Sending BIC' "$logfile" | awk '
+{
+    if (match($0, /(MT 103|MT 202 COV|MT 202|PACS 004|PACS 008|PACS 009)/, arr)) {
+        count[arr[1]]++
+    }
+}
+END {
+    for (type in count) {
+        print type ": " count[type]
+    }
+}'
+
+# Process 2nd type of logs
+echo "Sums for 2nd type of logs:"
+grep -E 'BATCH BIC|FIN BATCH BIC' "$logfile" | awk '
+{
+    if (match($0, /(004: [0-9]+|008: [0-9]+|009: [0-9]+|MT103: [0-9]+|MT202: [0-9]+|MT202COV: [0-9]+)/)) {
+        split($0, fields, ", ")
+        for (i in fields) {
+            split(fields[i], pair, ": ")
+            type = pair[1]
+            value = pair[2]
+            count[type] += value
+        }
+    }
+}
+END {
+    for (type in count) {
+        print type ": " count[type]
+    }
+}'
+Execution
+Save the script to a file, e.g., process_logs.sh.
+Make the script executable:
+sh
+Skopiuj kod
+chmod +x process_logs.sh
+Run the script:
+sh
+Skopiuj kod
+./process_logs.sh
+This script will output the counts for the first type of log lines and the sums for the second type, giving you a comprehensive summary of the occurrences and values for each type.
