@@ -71,6 +71,10 @@ This script will output the counts for the first type of log lines and the sums 
 
 ```
 
+#!/bin/bash
+
+logfile="logfile.log"
+
 # Process 1st type of logs
 echo "Counts for 1st type of logs:"
 counts1=$(grep 'Sending BIC' "$logfile" | awk '
@@ -118,7 +122,15 @@ sum_counts() {
     # Handle empty values
     count1=${count1:-0}
     count2=${count2:-0}
-    
+
+    # Ensure count1 and count2 are numeric
+    if ! [[ "$count1" =~ ^[0-9]+$ ]]; then
+        count1=0
+    fi
+    if ! [[ "$count2" =~ ^[0-9]+$ ]]; then
+        count2=0
+    fi
+
     echo $((count1 + count2))
 }
 
