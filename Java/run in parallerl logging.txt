@@ -1,15 +1,13 @@
-Yes, you can achieve similar logging in JUnit 5 (JUnit Jupiter) by using TestWatcher as an extension. JUnit 5 provides a more flexible extension model that can be used to accomplish this task.
+In JUnit 5, TestWatcher interface does not have a method testStarted. Instead, you need to override the appropriate methods for logging. Here's the corrected approach:
 
-Here's how you can do it:
-
-Step-by-Step Implementation
-Create a Custom TestWatcher Extension: Create a class that implements TestWatcher and uses SLF4J for logging.
-Register the Extension in the Base Test Class: Use the @ExtendWith annotation in the base test class to apply the custom extension to all test classes that extend the base class.
+Create a Custom TestWatcher Extension: Implement the TestWatcher interface correctly.
+Register the Extension in the Base Test Class: Use the @ExtendWith annotation in the base test class.
 Step 1: Create a Custom TestWatcher Extension
 Create a custom extension that implements TestWatcher and logs messages before and after each test method.
 
 java
 Skopiuj kod
+import org.junit.jupiter.api.extension.BeforeTestExecutionCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestWatcher;
 import org.slf4j.Logger;
@@ -18,9 +16,15 @@ import org.slf4j.LoggerFactory;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class LoggingTestWatcherExtension implements TestWatcher {
+public class LoggingTestWatcherExtension implements TestWatcher, BeforeTestExecutionCallback {
     private static final Logger logger = LoggerFactory.getLogger(LoggingTestWatcherExtension.class);
     private static final AtomicInteger testCounter = new AtomicInteger(0);
+
+    @Override
+    public void beforeTestExecution(ExtensionContext context) {
+        int testId = testCounter.incrementAndGet();
+        logger.info("Test [{} - {}]: {} starting", testId, Thread.currentThread().getName(), context.getDisplayName());
+    }
 
     @Override
     public void testSuccessful(ExtensionContext context) {
@@ -40,12 +44,6 @@ public class LoggingTestWatcherExtension implements TestWatcher {
     @Override
     public void testDisabled(ExtensionContext context, Optional<String> reason) {
         logTestFinish(context, "disabled");
-    }
-
-    @Override
-    public void testStarted(ExtensionContext context) {
-        int testId = testCounter.incrementAndGet();
-        logger.info("Test [{} - {}]: {} starting", testId, Thread.currentThread().getName(), context.getDisplayName());
     }
 
     private void logTestFinish(ExtensionContext context, String status) {
@@ -88,8 +86,9 @@ public class MyTest extends ITTest {
 Explanation
 LoggingTestWatcherExtension:
 
-Implements TestWatcher to log messages before and after each test method.
-Uses testStarted to log before a test starts.
+Implements TestWatcher to log messages after each test method.
+Implements BeforeTestExecutionCallback to log messages before each test method starts.
+Uses beforeTestExecution to log before a test starts.
 Uses testSuccessful, testFailed, testAborted, and testDisabled to log after a test finishes, regardless of the outcome.
 Includes a unique identifier and thread name in the log messages to handle parallel execution.
 ITTest Class:
