@@ -213,3 +213,29 @@ function Process-Files($Path, $Extension) {
     }
 }
 Explan
+
+
+
+
+
+
+
+
+
+
+
+
+
+function Clear-TargetDirectory($targetDir) {
+    Get-ChildItem -Path $targetDir -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
+    Write-Host "Cleared all files in $targetDir"
+}
+Step 2: Integrate the Deletion Logic into Process-Files
+Before processing the files, call this function to clear out the target directory. This should be done at the beginning of the Process-Files function.
+
+powershell
+Skopiuj kod
+function Process-Files($Path, $Extension) {
+    # Configuration for target directory
+    $targetDir = $Configurations["TARGET_DIR"]
+    Clear-TargetDirectory $targetDir  # Clear the target directory before processing
