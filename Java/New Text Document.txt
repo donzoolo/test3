@@ -1,0 +1,24 @@
+    public static String generateFileName(String type) {
+        // Determine the type code
+        String typeCode = "002";
+        if ("Live".equalsIgnoreCase(type)) {
+            typeCode = "001";
+        }
+
+        // Generate a random 7-digit number
+        Random random = new Random();
+        int randomNumber = 1000000 + random.nextInt(9000000);
+
+        // Get the current date and time
+        LocalDateTime now = LocalDateTime.now();
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HHmmss");
+
+        String currentDate = now.format(dateFormatter);
+        String currentTime = now.format(timeFormatter);
+
+        // Construct the final string
+        String fileName = String.format("PE_010_%s_%07d_%s_%s.xml", typeCode, randomNumber, currentDate, currentTime);
+
+        return fileName;
+    }
