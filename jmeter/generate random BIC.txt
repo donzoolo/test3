@@ -1,0 +1,24 @@
+// Define the characters to choose from for random letters and numbers
+def letters = ('A'..'Z').join()
+def alphanumeric = (('A'..'Z') + ('0'..'9')).join()
+
+// List of valid 2-letter country codes
+def countryCodes = ["US", "CA", "GB", "FR", "DE", "IT", "ES", "AU", "JP", "CN", "IN", "BR", "ZA", "RU"]
+
+// Generate 4 random uppercase letters
+def randomLetters = (1..4).collect { letters.charAt(new Random().nextInt(letters.length())) }.join()
+
+// Select a random 2-letter country code
+def randomCountryCode = countryCodes[new Random().nextInt(countryCodes.size())]
+
+// Generate 2 random uppercase letters or numbers
+def randomAlphanumeric = (1..2).collect { alphanumeric.charAt(new Random().nextInt(alphanumeric.length())) }.join()
+
+// Combine all parts to form the final string
+def finalString = randomLetters + randomCountryCode + randomAlphanumeric
+
+// Log the generated string to the console (optional)
+log.info("Generated String: " + finalString)
+
+// You can store this random string in a JMeter variable if needed
+vars.put("RANDOM_STRING", finalString)
