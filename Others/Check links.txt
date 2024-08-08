@@ -1,0 +1,46 @@
+(async () => {
+  const xpathResult = document.evaluate('//a[@href]', document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+  const links = [];
+  
+  for (let i = 0; i < xpathResult.snapshotLength; i++) {
+    links.push(xpathResult.snapshotItem(i));
+  }
+
+  console.log(`Found ${links.length} links on the page.`);
+
+  const brokenLinks = [];
+  const pageNotFoundKeywords = ["Page Not Found", "404", "Not Found"];
+
+  for (const link of links) {
+    const href = link.href;
+    if (!href.startsWith('http')) {
+      // Skip non-http links (such as mailto:, tel:, javascript:, etc.)
+      continue;
+    }
+
+    try {
+      const headResponse = await fetch(href, { method: 'HEAD' });
+      if (!headResponse.ok) {
+        brokenLinks.push({ href, status: headResponse.status });
+        console.log(`Broken link found: ${href} (Status: ${headResponse.status})`);
+      } else {
+        // Perform a GET request to check the page content
+        const getResponse = await fetch(href);
+        const text = await getResponse.text();
+        if (pageNotFoundKeywords.some(keyword => text.includes(keyword))) {
+          brokenLinks.push({ href, status: "Page Not Found content detected" });
+          console.log(`Broken link found: ${href} (Page Not Found content detected)`);
+        }
+      }
+    } catch (error) {
+      brokenLinks.push({ href, error: error.message });
+      console.log(`Broken link found: ${href} (Error: ${error.message})`);
+    }
+  }
+
+  if (brokenLinks.length === 0) {
+    console.log('No broken links found.');
+  } else {
+    console.log('Broken links:', brokenLinks);
+  }
+})();
