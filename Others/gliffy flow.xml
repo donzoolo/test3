@@ -1,0 +1,96 @@
+<gliffy>
+  <diagram>
+    <objects>
+      <!-- Backlog Column -->
+      <object id="1" type="container" x="50" y="50" width="150" height="600" name="Backlog">
+        <properties>
+          <property name="title">Backlog</property>
+        </properties>
+      </object>
+      <!-- TODO Column -->
+      <object id="2" type="container" x="250" y="50" width="150" height="600" name="TODO">
+        <properties>
+          <property name="title">TODO</property>
+        </properties>
+      </object>
+      <!-- In Progress Column -->
+      <object id="3" type="container" x="450" y="50" width="150" height="600" name="In Progress">
+        <properties>
+          <property name="title">In Progress</property>
+        </properties>
+      </object>
+      <!-- Bitbucket Invitation Column -->
+      <object id="4" type="container" x="650" y="50" width="200" height="600" name="Bitbucket Invitation">
+        <properties>
+          <property name="title">Bitbucket Invitation</property>
+        </properties>
+      </object>
+      <!-- Unit Testing Column -->
+      <object id="5" type="container" x="900" y="50" width="150" height="600" name="Unit Testing">
+        <properties>
+          <property name="title">Unit Testing</property>
+        </properties>
+      </object>
+      <!-- Security Testing Column -->
+      <object id="6" type="container" x="1100" y="50" width="150" height="600" name="Security Testing">
+        <properties>
+          <property name="title">Security Testing</property>
+        </properties>
+      </object>
+      <!-- Docker Environment Column -->
+      <object id="7" type="container" x="1300" y="50" width="150" height="600" name="Docker Environment">
+        <properties>
+          <property name="title">Docker Environment</property>
+        </properties>
+      </object>
+      <!-- Test Review Column -->
+      <object id="8" type="container" x="1500" y="50" width="150" height="600" name="Test Review">
+        <properties>
+          <property name="title">Test Review</property>
+        </properties>
+      </object>
+      <!-- Tester Assignment Column -->
+      <object id="9" type="container" x="1700" y="50" width="150" height="600" name="Tester Assignment">
+        <properties>
+          <property name="title">Tester Assignment</property>
+        </properties>
+      </object>
+      <!-- Testing Column -->
+      <object id="10" type="container" x="1900" y="50" width="150" height="600" name="Testing">
+        <properties>
+          <property name="title">Testing</property>
+        </properties>
+      </object>
+      <!-- Ready for Measurement Column -->
+      <object id="11" type="container" x="2100" y="50" width="200" height="600" name="Ready for Measurement">
+        <properties>
+          <property name="title">Ready for Measurement</property>
+        </properties>
+      </object>
+
+      <!-- Example Task Cards -->
+      <object id="12" type="shape" x="60" y="100" width="130" height="40" name="Task 1">
+        <properties>
+          <property name="label">Task 1</property>
+          <property name="color">#AED6F1</property>
+        </properties>
+      </object>
+      <object id="13" type="shape" x="260" y="200" width="130" height="40" name="Task 2">
+        <properties>
+          <property name="label">Task 2</property>
+          <property name="color">#A9DFBF</property>
+        </properties>
+      </object>
+      <!-- Add more task cards as needed -->
+
+      <!-- Connectors -->
+      <object id="14" type="connector" source="12" target="13">
+        <properties>
+          <property name="color">#000000</property>
+          <property name="lineStyle">solid</property>
+        </properties>
+      </object>
+      <!-- Add more connectors to represent flow -->
+    </objects>
+  </diagram>
+</gliffy>
