@@ -1,3 +1,13 @@
+
+Dear [Agile Coach's Name],
+
+As you move on to new challenges, I want to take a moment to express my sincere appreciation for the time we've worked together at ABC. Your positive attitude, constant smile, and unwavering professionalism have truly left a lasting impression on me and everyone else you’ve supported.
+
+You’ve not only guided us through Agile practices but also created an environment where we could grow and learn with confidence. It’s been a pleasure working with you, and you’ll certainly be missed.
+
+Wishing you all the best in your next chapter – may it be filled with as much success and joy as you’ve brought to us!
+
+Take care,
 1. Integration Testing Stack Overview
 Our integration testing framework is built on a robust and modern technology stack to ensure the reliability, efficiency, and maintainability of our applications. We utilize Spring Boot with the @SpringBootTest annotation to create a comprehensive testing environment that closely mirrors our production setup. The application leverages Java Jakarta EE, specifically Jakarta RESTful Web Services (JAX-RS), for enterprise-level functionalities, ensuring adherence to industry standards.
 
