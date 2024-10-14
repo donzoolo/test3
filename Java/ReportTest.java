@@ -1,0 +1,53 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class ReportTest extends ItTest {
+
+    @Autowired
+    private AuditLogService auditLogService;
+
+    private LocalDateTime beforeTestDate;
+
+    @BeforeEach
+    void setup() {
+        // Set beforeTestDate with a 5-second buffer
+        this.beforeTestDate = LocalDateTime.now().minusSeconds(5);
+    }
+
+    @Test
+    void downloadReportTest() {
+        // Step 1: Retrieve audit log entries before action
+        List<AuditLog> initialAuditLogs = auditLogService.findEntriesAfter(beforeTestDate);
+
+        // Step 2: Perform the action (e.g., download report)
+        downloadReport(); // Implement the download action here
+
+        // Step 3: Retrieve audit log entries after action
+        List<AuditLog> finalAuditLogs = auditLogService.findEntriesAfter(beforeTestDate);
+
+        // Step 4: Filter out entries present in the initial list
+        List<AuditLog> newAuditLogs = finalAuditLogs.stream()
+                .filter(entry -> !initialAuditLogs.contains(entry))
+                .collect(Collectors.toList());
+
+        // Step 5: Assert that only one new entry is present
+        assertEquals(1, newAuditLogs.size(), "Expected only one new audit log entry");
+
+        // Step 6: Verify the content of the new audit log entry
+        AuditLog newEntry = newAuditLogs.get(0);
+        assertEquals("Download Report", newEntry.getAction(), "Audit log entry action does not match expected value");
+        assertTrue(newEntry.getDetails().contains("Report downloaded successfully"), "Audit log entry details do not match expected content");
+    }
+
+    private void downloadReport() {
+        // Logic to perform the report download action goes here
+    }
+}
