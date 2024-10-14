@@ -108,3 +108,14 @@ public class AuditLogUtils {
         }
     }
 }
+    /**
+     * Extracts auditRecordIds from a list of AuditLog entries and returns them as an array.
+     *
+     * @param auditLogs The list of AuditLog entries.
+     * @return An array of auditRecordIds.
+     */
+    public Long[] extractAuditRecordIds(List<AuditLog> auditLogs) {
+        return auditLogs.stream()
+                .map(AuditLog::getAuditRecordId)
+                .toArray(Long[]::new);
+    }
