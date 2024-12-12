@@ -8,51 +8,64 @@ file_path_old = "your_old_file.txt"  # Replace with your old file path
 added = ["AAAABBBBXXX", "AAAABBBBXXY", "AAAABBBBX2X"]  # New entries
 updated = ["AAAABBBBXXZ", "AAAABBBBX3X"]  # Entries to compare between old and new files
 
-# Function to extract information for search strings in a file, line-by-line
-def extract_info_line_by_line(file_path, search_strings):
+# Function to process file in chunks of 1000 entries
+def extract_info_in_chunks(file_path, search_strings, chunk_size=1000):
     extracted = {key: None for key in search_strings}  # Initialize results
     patterns = {
         search_string: re.compile(rf'{re.escape(search_string)}\s+BIC11(.*?)\n[A-Z]', re.DOTALL)
         for search_string in search_strings
     }
+
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as file:
+            entries = []
             buffer = ""
-            found_count = 0  # Track how many strings have been found
+            entry_pattern = re.compile(r'\n[A-Z].*?\n[A-Z]', re.DOTALL)
 
             for line in file:
                 buffer += line
-                # Check if any search string exists in the buffer
-                for search_string, pattern in patterns.items():
-                    if extracted[search_string] is not None:
-                        continue  # Skip already found strings
+                # Extract entries from the buffer
+                while True:
+                    match = entry_pattern.search(buffer)
+                    if not match:
+                        break
+                    entry = match.group()
+                    entries.append(entry)
+                    buffer = buffer[match.end():]  # Remove the processed entry from the buffer
 
-                    if search_string in buffer:  # Quick check before running regex
-                        match = pattern.search(buffer)
-                        if match:
-                            after_bic11 = match.group(1)
-                            last_string = re.findall(r'\S+', after_bic11)[-1]
-                            extracted[search_string] = last_string
-                            found_count += 1
-                            print(f"Found match for {search_string}: {last_string}")
+                    # Process the chunk if we reach chunk size
+                    if len(entries) >= chunk_size:
+                        extracted.update(process_chunk(entries, patterns, search_strings))
+                        entries = []  # Reset entries
 
-                # Exit early if all strings are found
-                if found_count == len(search_strings):
-                    print("All search strings found, stopping early.")
-                    return extracted
-
-                # Flush buffer to avoid excessive memory usage
-                if len(buffer) > 10000:
-                    buffer = buffer[-10000:]  # Keep only the last 10,000 characters
+            # Process remaining entries
+            if entries:
+                extracted.update(process_chunk(entries, patterns, search_strings))
 
     except UnicodeDecodeError as e:
         print(f"Error reading file: {e}")
 
     return extracted
 
+# Function to process a chunk of entries
+def process_chunk(entries, patterns, search_strings):
+    results = {}
+    for entry in entries:
+        for search_string, pattern in patterns.items():
+            if results.get(search_string) is not None:
+                continue  # Skip already found strings
+            if search_string in entry:  # Quick check before running regex
+                match = pattern.search(entry)
+                if match:
+                    after_bic11 = match.group(1)
+                    last_string = re.findall(r'\S+', after_bic11)[-1]
+                    results[search_string] = last_string
+                    print(f"Found match for {search_string}: {last_string}")
+    return results
+
 # Process 'added' entries
 print("\nProcessing 'added' entries:")
-added_results = extract_info_line_by_line(file_path, added)
+added_results = extract_info_in_chunks(file_path, added)
 for search_string, last_string in added_results.items():
     if last_string:
         print(f"Search string: {search_string} -> Last string: {last_string}")
@@ -61,8 +74,8 @@ for search_string, last_string in added_results.items():
 
 # Process 'updated' entries
 print("\nProcessing 'updated' entries:")
-old_results = extract_info_line_by_line(file_path_old, updated)
-new_results = extract_info_line_by_line(file_path, updated)
+old_results = extract_info_in_chunks(file_path_old, updated)
+new_results = extract_info_in_chunks(file_path, updated)
 
 for search_string in updated:
     old_value = old_results.get(search_string, None)
