@@ -11,8 +11,11 @@ updated = ["AAAABBBBXXZ", "AAAABBBBX3X"]  # Entries to compare between old and n
 # Function to process file in chunks of 1000 entries
 def extract_info_in_chunks(file_path, search_strings, chunk_size=1000):
     extracted = {key: None for key in search_strings}  # Initialize results
+    # Update regex to match the new entry format
     patterns = {
-        search_string: re.compile(rf'{re.escape(search_string)}\s+BIC11(.*?)\n[A-Z]', re.DOTALL)
+        search_string: re.compile(
+            rf'\nA.*?{re.escape(search_string)}\s+BIC11.*?([a-zA-Z_]+/[a-zA-Z_]+)\nA', re.DOTALL
+        )
         for search_string in search_strings
     }
 
@@ -20,7 +23,7 @@ def extract_info_in_chunks(file_path, search_strings, chunk_size=1000):
         with open(file_path, "r", encoding="utf-8", errors="ignore") as file:
             entries = []
             buffer = ""
-            entry_pattern = re.compile(r'\n[A-Z].*?\n[A-Z]', re.DOTALL)
+            entry_pattern = re.compile(r'\nA.*?\nA', re.DOTALL)  # Match entries
 
             for line in file:
                 buffer += line
@@ -57,8 +60,7 @@ def process_chunk(entries, patterns, search_strings):
             if search_string in entry:  # Quick check before running regex
                 match = pattern.search(entry)
                 if match:
-                    after_bic11 = match.group(1)
-                    last_string = re.findall(r'\S+', after_bic11)[-1]
+                    last_string = match.group(1)
                     results[search_string] = last_string
                     # Debug: Print the entire entry
                     print(f"Entry containing {search_string} ->\n{entry.strip()}")
