@@ -1,4 +1,4 @@
-import re
+import csv
 
 # Define file paths
 file_path = "your_new_file.txt"  # Replace with your new file path
@@ -8,68 +8,33 @@ file_path_old = "your_old_file.txt"  # Replace with your old file path
 added = ["AAAABBBBXXX", "AAAABBBBXXY", "AAAABBBBX2X"]  # New entries
 updated = ["AAAABBBBXXZ", "AAAABBBBX3X"]  # Entries to compare between old and new files
 
-# Function to process file in chunks of 1000 entries
-def extract_info_in_chunks(file_path, search_strings, chunk_size=1000):
+# Function to extract information from a file
+def extract_info_from_csv(file_path, search_strings):
     extracted = {key: None for key in search_strings}  # Initialize results
-    # Update regex to match the new entry format
-    patterns = {
-        search_string: re.compile(
-            rf'\nA.*?{re.escape(search_string)}\s+BIC11.*?([a-zA-Z_]+/[a-zA-Z_]+)\nA', re.DOTALL
-        )
-        for search_string in search_strings
-    }
 
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as file:
-            entries = []
-            buffer = ""
-            entry_pattern = re.compile(r'\nA.*?\nA', re.DOTALL)  # Match entries
+            reader = csv.reader(file, delimiter="\t")  # Read as tab-separated values
 
-            for line in file:
-                buffer += line
-                # Extract entries from the buffer
-                while True:
-                    match = entry_pattern.search(buffer)
-                    if not match:
-                        break
-                    entry = match.group()
-                    entries.append(entry)
-                    buffer = buffer[match.end():]  # Remove the processed entry from the buffer
+            for row in reader:
+                if len(row) < 49:
+                    continue  # Skip lines with insufficient columns
 
-                    # Process the chunk if we reach chunk size
-                    if len(entries) >= chunk_size:
-                        extracted.update(process_chunk(entries, patterns, search_strings))
-                        entries = []  # Reset entries
-
-            # Process remaining entries
-            if entries:
-                extracted.update(process_chunk(entries, patterns, search_strings))
-
+                # Check if the first column is 'A' and search string is in column 14
+                if row[0] == "A":
+                    for search_string in search_strings:
+                        if search_string == row[13] and row[14] == "BIC11":
+                            # Extract value from column 49
+                            extracted[search_string] = row[48]
+                            print(f"Found match for {search_string}: {row[48]}")
     except UnicodeDecodeError as e:
         print(f"Error reading file: {e}")
 
     return extracted
 
-# Function to process a chunk of entries
-def process_chunk(entries, patterns, search_strings):
-    results = {}
-    for entry in entries:
-        for search_string, pattern in patterns.items():
-            if results.get(search_string) is not None:
-                continue  # Skip already found strings
-            if search_string in entry:  # Quick check before running regex
-                match = pattern.search(entry)
-                if match:
-                    last_string = match.group(1)
-                    results[search_string] = last_string
-                    # Debug: Print the entire entry
-                    print(f"Entry containing {search_string} ->\n{entry.strip()}")
-                    print(f"Extracted last string: {last_string}")
-    return results
-
 # Process 'added' entries
 print("\nProcessing 'added' entries:")
-added_results = extract_info_in_chunks(file_path, added)
+added_results = extract_info_from_csv(file_path, added)
 for search_string, last_string in added_results.items():
     if last_string:
         print(f"Search string: {search_string} -> Last string: {last_string}")
@@ -78,8 +43,8 @@ for search_string, last_string in added_results.items():
 
 # Process 'updated' entries
 print("\nProcessing 'updated' entries:")
-old_results = extract_info_in_chunks(file_path_old, updated)
-new_results = extract_info_in_chunks(file_path, updated)
+old_results = extract_info_from_csv(file_path_old, updated)
+new_results = extract_info_from_csv(file_path, updated)
 
 for search_string in updated:
     old_value = old_results.get(search_string, None)
