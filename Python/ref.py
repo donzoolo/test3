@@ -60,7 +60,9 @@ def process_chunk(entries, patterns, search_strings):
                     after_bic11 = match.group(1)
                     last_string = re.findall(r'\S+', after_bic11)[-1]
                     results[search_string] = last_string
-                    print(f"Found match for {search_string}: {last_string}")
+                    # Debug: Print the entire entry
+                    print(f"Entry containing {search_string} ->\n{entry.strip()}")
+                    print(f"Extracted last string: {last_string}")
     return results
 
 # Process 'added' entries
