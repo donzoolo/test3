@@ -31,16 +31,12 @@ async function capturePageScreenshot(linkSelector, textToWaitFor, screenshotName
       throw new Error(`Link not found with selector: ${linkSelector}`);
     }
 
-    console.log('Clicking link...');
-    linkElement.click();
-
-    // Step 2: Wait for the specific text to appear
-    console.log(`Waiting for text "${textToWaitFor}" to appear on the page...`);
-    await waitForTextToBePresent(textToWaitFor, 10000); // 10-second timeout
+    console.log('Clicking link and waiting for navigation...');
+    await navigateAndWait(linkElement, textToWaitFor);
 
     console.log('Text found. Taking screenshot...');
 
-    // Step 3: Take a screenshot (DevTools-specific API)
+    // Step 2: Take a screenshot (DevTools-specific API)
     const screenshot = await new Promise((resolve, reject) => {
       try {
         chrome.runtime.sendMessage(
@@ -66,27 +62,42 @@ async function capturePageScreenshot(linkSelector, textToWaitFor, screenshotName
   }
 }
 
-// Helper function to wait for text to appear on the page
-function waitForTextToBePresent(text, timeout = 5000) {
+// Helper function to navigate and wait for text to appear
+async function navigateAndWait(linkElement, textToWaitFor) {
   return new Promise((resolve, reject) => {
-    const intervalTime = 100; // Check every 100ms
-    const startTime = Date.now();
+    let timeout;
+    let textFound = false;
 
     const checkForText = () => {
       const bodyText = document.body.innerText || document.body.textContent;
-
-      if (bodyText.includes(text)) {
+      if (bodyText.includes(textToWaitFor)) {
+        textFound = true;
+        cleanup();
         resolve();
-      } else if (Date.now() - startTime > timeout) {
-        reject(new Error(`Timeout: Text "${text}" not found on the page within ${timeout}ms.`));
-      } else {
-        setTimeout(checkForText, intervalTime);
       }
     };
 
-    checkForText();
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.removeEventListener('load', checkForText);
+    };
+
+    // Set a timeout for navigation and text detection
+    timeout = setTimeout(() => {
+      if (!textFound) {
+        cleanup();
+        reject(new Error(`Timeout: Text "${textToWaitFor}" not found on the page.`));
+      }
+    }, 15000); // 15-second timeout
+
+    // Listen for the new page load and check for the text
+    window.addEventListener('load', checkForText);
+
+    // Trigger the navigation
+    linkElement.click();
   });
 }
+
 
 
 // Example Usage:
