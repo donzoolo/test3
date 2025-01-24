@@ -34,13 +34,15 @@ async function capturePageScreenshot(linkSelector, elementLocator, screenshotNam
     console.log('Clicking link...');
     linkElement.click();
 
-    // Step 2: Wait for the page to load
+    // Step 2: Wait for navigation and DOM updates
     console.log('Waiting for page to load...');
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Adjust timeout as necessary
+    await waitForPageLoad();
 
     // Step 3: Locate and scroll to the specified element
     console.log('Locating target element...');
-    const targetElement = typeof elementLocator === 'function' ? elementLocator() : document.querySelector(elementLocator);
+    const targetElement = typeof elementLocator === 'function'
+      ? elementLocator()
+      : document.querySelector(elementLocator);
 
     if (!targetElement) {
       throw new Error('Target element not found.');
@@ -49,7 +51,10 @@ async function capturePageScreenshot(linkSelector, elementLocator, screenshotNam
     console.log('Scrolling to element...');
     targetElement.scrollIntoView({ behavior: 'smooth' });
 
-    // Step 4: Take a screenshot (DevTools-specific API)
+    // Step 4: Wait a moment to ensure smooth scrolling
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Step 5: Take a screenshot (DevTools-specific API)
     console.log('Taking screenshot...');
     const screenshot = await new Promise((resolve, reject) => {
       try {
@@ -62,7 +67,7 @@ async function capturePageScreenshot(linkSelector, elementLocator, screenshotNam
       }
     });
 
-    // Create a temporary link element to save the screenshot
+    // Save the screenshot
     const link = document.createElement('a');
     link.href = screenshot;
     link.download = screenshotName;
@@ -76,6 +81,20 @@ async function capturePageScreenshot(linkSelector, elementLocator, screenshotNam
   }
 }
 
+// Helper function to wait for page navigation to complete
+function waitForPageLoad() {
+  return new Promise(resolve => {
+    const observer = new MutationObserver((mutations, obs) => {
+      // Check if the body has updated (indicating navigation is complete)
+      if (document.readyState === 'complete') {
+        obs.disconnect();
+        resolve();
+      }
+    });
+
+    observer.observe(document, { childList: true, subtree: true });
+  });
+}
 
 // Example Usage:
 // Download files
