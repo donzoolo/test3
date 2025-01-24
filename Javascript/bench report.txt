@@ -1,53 +1,49 @@
 async function navigateAndCaptureScreenshot(targetUrl, targetText, screenshotName) {
   try {
+    // Step 1: Navigate to the target URL
     console.log(`Navigating to ${targetUrl}...`);
-    window.location.href = targetUrl;
+    navigateToUrl(targetUrl);
 
-    // Wait for the page to load
-    await waitForPageLoad();
+    // Step 2: Wait for the target text to appear on the page
+    console.log(`Waiting for text "${targetText}" to appear...`);
+    await waitForContent(targetText, 15000); // 15-second timeout
 
-    console.log('Page loaded. Monitoring for target text...');
-    // Monitor the DOM for the target text
-    await monitorDOMForText(targetText, 15000); // 15-second timeout
-
+    // Step 3: Capture the screenshot
     console.log(`Target text "${targetText}" detected! Capturing screenshot...`);
-    // Capture the screenshot
     captureScreenshot(screenshotName);
+
+    console.log(`Screenshot saved as: ${screenshotName}`);
   } catch (error) {
     console.error('Error during navigation and screenshot capture:', error);
   }
 }
 
-// Helper function to wait for the page to fully load
-function waitForPageLoad() {
-  return new Promise((resolve) => {
-    if (document.readyState === 'complete') {
-      resolve(); // Page is already fully loaded
-    } else {
-      window.addEventListener('load', () => resolve(), { once: true });
-    }
-  });
+// Helper function to navigate to the target URL
+function navigateToUrl(targetUrl) {
+  // Use the History API to change the URL and trigger navigation
+  window.history.pushState({}, '', targetUrl);
+
+  // Trigger the popstate event manually to mimic navigation behavior
+  window.dispatchEvent(new Event('popstate'));
 }
 
-// Helper function to monitor the DOM for specific text
-function monitorDOMForText(targetText, timeout = 10000) {
+// Helper function to wait for specific content on the page
+function waitForContent(targetText, timeout = 10000) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
 
-    // Check if the text is already present
-    const checkText = () => {
+    const checkContent = () => {
       const bodyText = document.body.innerText || document.body.textContent;
       if (bodyText.includes(targetText)) {
         resolve();
       } else if (Date.now() - startTime > timeout) {
         reject(new Error(`Timeout: Text "${targetText}" not found within ${timeout}ms.`));
       } else {
-        // Retry after a short delay
-        setTimeout(checkText, 100);
+        setTimeout(checkContent, 100); // Retry every 100ms
       }
     };
 
-    checkText();
+    checkContent();
   });
 }
 
@@ -69,15 +65,13 @@ function captureScreenshot(fileName) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
-      console.log(`Screenshot saved as: ${fileName}`);
     }
   );
 }
 
-// Example Usage
+// Example usage
 navigateAndCaptureScreenshot(
-  'https://example.com/page-to-capture', // URL to navigate to
-  'Statistics',                         // Text to wait for
-  'page-screenshot.png'                 // Screenshot file name
+  '/new-page-url',      // Relative or absolute URL
+  'Statistics',         // Text to wait for
+  'page-screenshot.png' // Screenshot file name
 );
