@@ -32,7 +32,7 @@ async function capturePageScreenshot(linkSelector, textToWaitFor, screenshotName
     }
 
     console.log('Clicking link and waiting for navigation or content...');
-    await waitForNavigationOrContentChange(linkElement, textToWaitFor);
+    await waitForNavigationAndContent(linkElement, textToWaitFor);
 
     console.log('Text found. Taking screenshot...');
 
@@ -62,9 +62,10 @@ async function capturePageScreenshot(linkSelector, textToWaitFor, screenshotName
   }
 }
 
-// Helper function to wait for navigation or content change
-async function waitForNavigationOrContentChange(linkElement, textToWaitFor, timeout = 15000) {
+// Helper function to wait for navigation and content change
+async function waitForNavigationAndContent(linkElement, textToWaitFor, timeout = 15000) {
   return new Promise((resolve, reject) => {
+    const initialUrl = window.location.href;
     let timeoutId;
     let observer;
 
@@ -81,7 +82,15 @@ async function waitForNavigationOrContentChange(linkElement, textToWaitFor, time
       }
     };
 
-    // Set up a MutationObserver to watch for changes in the DOM
+    const waitForUrlChange = () => {
+      const currentUrl = window.location.href;
+      if (currentUrl !== initialUrl) {
+        console.log(`URL changed to ${currentUrl}`);
+        setTimeout(checkForText, 500); // Give DOM a moment to update
+      }
+    };
+
+    // Set up a MutationObserver to watch for content changes
     observer = new MutationObserver(() => {
       checkForText();
     });
@@ -93,10 +102,18 @@ async function waitForNavigationOrContentChange(linkElement, textToWaitFor, time
       reject(new Error(`Timeout: Text "${textToWaitFor}" not found on the page within ${timeout}ms.`));
     }, timeout);
 
-    // Trigger the navigation or content change
+    // Listen for URL changes
+    const urlCheckInterval = setInterval(() => {
+      waitForUrlChange();
+      if (window.location.href !== initialUrl) {
+        clearInterval(urlCheckInterval);
+      }
+    }, 100);
+
+    // Trigger navigation by clicking the link
     linkElement.click();
 
-    // Perform an initial check in case the text is already present
+    // Perform an initial check for the text
     checkForText();
   });
 }
