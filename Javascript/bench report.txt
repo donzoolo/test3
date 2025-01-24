@@ -106,7 +106,7 @@ filesToDownload.forEach(file => downloadFile(file.url, file.name));
 
 // Capture a screenshot
 capturePageScreenshot(
-  'a.example-link',                // Selector for the link to click
-  element => [...document.querySelectorAll('p.dashboard-title')].find(el => el.textContent.trim() === 'Statistics'), // Function to dynamically locate the element
-  'page-screenshot.png'            // Name of the screenshot file
+  'a.example-link', // Selector for the link to click
+  () => [...document.querySelectorAll('p.dashboard-title')].find(el => el.textContent.trim() === 'Statistics'), // Function to locate the element
+  'page-screenshot.png' // Desired screenshot file name
 );
