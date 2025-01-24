@@ -23,8 +23,7 @@ async function downloadFile(url, fileName) {
   }
 }
 
-// Function to click a link, wait for load, scroll to an element, and take a screenshot
-async function capturePageScreenshot(linkSelector, elementSelector, screenshotName) {
+async function capturePageScreenshot(linkSelector, elementLocator, screenshotName) {
   try {
     // Step 1: Find and click the link
     const linkElement = document.querySelector(linkSelector);
@@ -37,12 +36,14 @@ async function capturePageScreenshot(linkSelector, elementSelector, screenshotNa
 
     // Step 2: Wait for the page to load
     console.log('Waiting for page to load...');
-    await new Promise(resolve => setTimeout(resolve, 5000)); // Adjust timeout if necessary
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Adjust timeout as necessary
 
-    // Step 3: Scroll to the specified element
-    const targetElement = document.querySelector(elementSelector);
+    // Step 3: Locate and scroll to the specified element
+    console.log('Locating target element...');
+    const targetElement = typeof elementLocator === 'function' ? elementLocator() : document.querySelector(elementLocator);
+
     if (!targetElement) {
-      throw new Error(`Element not found with selector: ${elementSelector}`);
+      throw new Error('Target element not found.');
     }
 
     console.log('Scrolling to element...');
@@ -75,6 +76,7 @@ async function capturePageScreenshot(linkSelector, elementSelector, screenshotNa
   }
 }
 
+
 // Example Usage:
 // Download files
 const filesToDownload = [
@@ -85,7 +87,7 @@ filesToDownload.forEach(file => downloadFile(file.url, file.name));
 
 // Capture a screenshot
 capturePageScreenshot(
-  'a.example-link',        // Selector for the link to click
-  'div.target-element',    // Selector for the element to scroll to
-  'page-screenshot.png'    // Name of the screenshot file
+  'a.example-link',                // Selector for the link to click
+  element => [...document.querySelectorAll('p.dashboard-title')].find(el => el.textContent.trim() === 'Statistics'), // Function to dynamically locate the element
+  'page-screenshot.png'            // Name of the screenshot file
 );
