@@ -32,11 +32,15 @@ async function capturePageScreenshot(linkSelector, elementLocator, screenshotNam
     }
 
     console.log('Clicking link...');
+    // Set up navigation detection
+    const navigationPromise = waitForNavigation();
+
+    // Perform the click
     linkElement.click();
 
     // Step 2: Wait for navigation to complete
-    console.log('Waiting for page to load...');
-    await waitForPageNavigation();
+    console.log('Waiting for page navigation...');
+    await navigationPromise;
 
     // Step 3: Locate and scroll to the specified element
     console.log('Locating target element...');
@@ -82,19 +86,25 @@ async function capturePageScreenshot(linkSelector, elementLocator, screenshotNam
   }
 }
 
-// Helper function to wait for page navigation to complete
-function waitForPageNavigation() {
+// Helper function to wait for navigation
+function waitForNavigation() {
   return new Promise(resolve => {
-    const checkReadyState = () => {
+    const onNavigation = () => {
       if (document.readyState === 'complete') {
+        window.removeEventListener('load', onNavigation);
         resolve();
-      } else {
-        setTimeout(checkReadyState, 100); // Retry until ready
       }
     };
-    checkReadyState();
+
+    window.addEventListener('load', onNavigation, { once: true });
+
+    // Fallback for fast navigation
+    if (document.readyState === 'complete') {
+      resolve();
+    }
   });
 }
+
 
 // Example Usage:
 // Download files
