@@ -23,20 +23,19 @@ async function downloadFile(url, fileName) {
   }
 }
 
-async function capturePageScreenshot(linkSelector, textToWaitFor, screenshotName) {
+async function capturePageScreenshot(targetUrl, textToWaitFor, screenshotName) {
   try {
-    // Step 1: Find and click the link
-    const linkElement = document.querySelector(linkSelector);
-    if (!linkElement) {
-      throw new Error(`Link not found with selector: ${linkSelector}`);
-    }
+    // Step 1: Navigate to the target URL
+    console.log(`Navigating to ${targetUrl}...`);
+    window.location.href = targetUrl;
 
-    console.log('Clicking link and waiting for navigation or content...');
-    await waitForNavigationAndContent(linkElement, textToWaitFor);
+    // Step 2: Wait for the page to load and desired text to appear
+    console.log('Waiting for page load and target text...');
+    await waitForTextToAppear(textToWaitFor, 15000); // 15-second timeout
 
     console.log('Text found. Taking screenshot...');
 
-    // Step 2: Take a screenshot (DevTools-specific API)
+    // Step 3: Take a screenshot (DevTools-specific API)
     const screenshot = await new Promise((resolve, reject) => {
       try {
         chrome.runtime.sendMessage(
@@ -62,62 +61,31 @@ async function capturePageScreenshot(linkSelector, textToWaitFor, screenshotName
   }
 }
 
-// Helper function to wait for navigation and content change
-async function waitForNavigationAndContent(linkElement, textToWaitFor, timeout = 15000) {
+// Helper function to wait for text to appear on the page
+function waitForTextToAppear(text, timeout = 10000) {
   return new Promise((resolve, reject) => {
-    const initialUrl = window.location.href;
-    let timeoutId;
-    let observer;
-
-    const cleanup = () => {
-      clearTimeout(timeoutId);
-      if (observer) observer.disconnect();
-    };
+    const intervalTime = 100; // Check every 100ms
+    const startTime = Date.now();
 
     const checkForText = () => {
       const bodyText = document.body.innerText || document.body.textContent;
-      if (bodyText.includes(textToWaitFor)) {
-        cleanup();
+      if (bodyText.includes(text)) {
         resolve();
+      } else if (Date.now() - startTime > timeout) {
+        reject(new Error(`Timeout: Text "${text}" not found on the page.`));
+      } else {
+        setTimeout(checkForText, intervalTime);
       }
     };
 
-    const waitForUrlChange = () => {
-      const currentUrl = window.location.href;
-      if (currentUrl !== initialUrl) {
-        console.log(`URL changed to ${currentUrl}`);
-        setTimeout(checkForText, 500); // Give DOM a moment to update
-      }
-    };
-
-    // Set up a MutationObserver to watch for content changes
-    observer = new MutationObserver(() => {
-      checkForText();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // Set a timeout to prevent hanging indefinitely
-    timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error(`Timeout: Text "${textToWaitFor}" not found on the page within ${timeout}ms.`));
-    }, timeout);
-
-    // Listen for URL changes
-    const urlCheckInterval = setInterval(() => {
-      waitForUrlChange();
-      if (window.location.href !== initialUrl) {
-        clearInterval(urlCheckInterval);
-      }
-    }, 100);
-
-    // Trigger navigation by clicking the link
-    linkElement.click();
-
-    // Perform an initial check for the text
     checkForText();
   });
 }
+const targetUrl = 'https://example.com/page-to-capture'; // URL to navigate to
+const textToWaitFor = 'Statistics'; // Text to wait for on the page
+const screenshotName = 'page-screenshot.png'; // Name for the screenshot file
 
+capturePageScreenshot(targetUrl, textToWaitFor, screenshotName);
 
 
 // Example Usage:
