@@ -1,0 +1,91 @@
+// Function to download a file
+async function downloadFile(url, fileName) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+    }
+    const blob = await response.blob();
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(link.href);
+
+    console.log(`Downloaded: ${fileName}`);
+  } catch (error) {
+    console.error(`Error downloading ${fileName}:`, error);
+  }
+}
+
+// Function to click a link, wait for load, scroll to an element, and take a screenshot
+async function capturePageScreenshot(linkSelector, elementSelector, screenshotName) {
+  try {
+    // Step 1: Find and click the link
+    const linkElement = document.querySelector(linkSelector);
+    if (!linkElement) {
+      throw new Error(`Link not found with selector: ${linkSelector}`);
+    }
+
+    console.log('Clicking link...');
+    linkElement.click();
+
+    // Step 2: Wait for the page to load
+    console.log('Waiting for page to load...');
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Adjust timeout if necessary
+
+    // Step 3: Scroll to the specified element
+    const targetElement = document.querySelector(elementSelector);
+    if (!targetElement) {
+      throw new Error(`Element not found with selector: ${elementSelector}`);
+    }
+
+    console.log('Scrolling to element...');
+    targetElement.scrollIntoView({ behavior: 'smooth' });
+
+    // Step 4: Take a screenshot (DevTools-specific API)
+    console.log('Taking screenshot...');
+    const screenshot = await new Promise((resolve, reject) => {
+      try {
+        chrome.runtime.sendMessage(
+          { action: 'captureVisibleTab' },
+          result => resolve(result)
+        );
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    // Create a temporary link element to save the screenshot
+    const link = document.createElement('a');
+    link.href = screenshot;
+    link.download = screenshotName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    console.log(`Screenshot saved as: ${screenshotName}`);
+  } catch (error) {
+    console.error('Error capturing screenshot:', error);
+  }
+}
+
+// Example Usage:
+// Download files
+const filesToDownload = [
+  { url: 'https://example.com/file1.zip', name: 'test-123.zip' },
+  { url: 'https://example.com/file2.pdf', name: 'example-file.pdf' },
+];
+filesToDownload.forEach(file => downloadFile(file.url, file.name));
+
+// Capture a screenshot
+capturePageScreenshot(
+  'a.example-link',        // Selector for the link to click
+  'div.target-element',    // Selector for the element to scroll to
+  'page-screenshot.png'    // Name of the screenshot file
+);
