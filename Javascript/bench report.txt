@@ -1,49 +1,51 @@
-async function navigateAndCaptureScreenshot(targetUrl, targetText, screenshotName) {
+async function startFromURL(targetUrl, textToWaitFor, screenshotName) {
   try {
-    // Step 1: Navigate to the target URL
-    console.log(`Navigating to ${targetUrl}...`);
-    navigateToUrl(targetUrl);
+    console.log(`Fetching content from: ${targetUrl}...`);
 
-    // Step 2: Wait for the target text to appear on the page
-    console.log(`Waiting for text "${targetText}" to appear...`);
-    await waitForContent(targetText, 15000); // 15-second timeout
+    // Step 1: Fetch the page content to verify accessibility
+    const response = await fetch(targetUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${targetUrl}: ${response.statusText}`);
+    }
+
+    // Replace the current document with the fetched content
+    const html = await response.text();
+    document.open();
+    document.write(html);
+    document.close();
+
+    console.log('Page content loaded into the browser.');
+
+    // Step 2: Wait for the desired text to appear dynamically
+    console.log(`Waiting for target text "${textToWaitFor}"...`);
+    await waitForTextOnPage(textToWaitFor, 15000); // 15-second timeout
+
+    console.log(`Target text "${textToWaitFor}" detected! Capturing screenshot...`);
 
     // Step 3: Capture the screenshot
-    console.log(`Target text "${targetText}" detected! Capturing screenshot...`);
     captureScreenshot(screenshotName);
-
-    console.log(`Screenshot saved as: ${screenshotName}`);
   } catch (error) {
-    console.error('Error during navigation and screenshot capture:', error);
+    console.error('Error during execution:', error);
   }
 }
 
-// Helper function to navigate to the target URL
-function navigateToUrl(targetUrl) {
-  // Use the History API to change the URL and trigger navigation
-  window.history.pushState({}, '', targetUrl);
-
-  // Trigger the popstate event manually to mimic navigation behavior
-  window.dispatchEvent(new Event('popstate'));
-}
-
-// Helper function to wait for specific content on the page
-function waitForContent(targetText, timeout = 10000) {
+// Helper function to wait for specific text to appear dynamically
+function waitForTextOnPage(targetText, timeout = 10000) {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
 
-    const checkContent = () => {
+    const checkForText = () => {
       const bodyText = document.body.innerText || document.body.textContent;
       if (bodyText.includes(targetText)) {
         resolve();
       } else if (Date.now() - startTime > timeout) {
         reject(new Error(`Timeout: Text "${targetText}" not found within ${timeout}ms.`));
       } else {
-        setTimeout(checkContent, 100); // Retry every 100ms
+        setTimeout(checkForText, 100);
       }
     };
 
-    checkContent();
+    checkForText();
   });
 }
 
@@ -65,13 +67,15 @@ function captureScreenshot(fileName) {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+
+      console.log(`Screenshot saved as: ${fileName}`);
     }
   );
 }
 
 // Example usage
-navigateAndCaptureScreenshot(
-  '/new-page-url',      // Relative or absolute URL
-  'Statistics',         // Text to wait for
-  'page-screenshot.png' // Screenshot file name
+startFromURL(
+  'https://example.com/page-to-capture', // Target URL
+  'Statistics',                         // Text to wait for
+  'page-screenshot.png'                 // Screenshot file name
 );
