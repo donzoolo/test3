@@ -6,12 +6,10 @@ SMALL="SQWERTYU,SQWERTYI"
 
 awk -v BIG="$BIG" -v MEDIUM="$MEDIUM" -v SMALL="$SMALL" '
 BEGIN {
-    # Populate BIC categories
     split(BIG, big_bics, ","); for (i in big_bics) bic_category[big_bics[i]] = "BIG";
     split(MEDIUM, medium_bics, ","); for (i in medium_bics) bic_category[medium_bics[i]] = "MEDIUM";
     split(SMALL, small_bics, ","); for (i in small_bics) bic_category[small_bics[i]] = "SMALL";
     
-    # Category order for output
     num_cats = 3;
     cat_order[1] = "BIG";
     cat_order[2] = "MEDIUM";
@@ -33,12 +31,10 @@ BEGIN {
         }
     }
     else if ($0 ~ /BATCH BIC:/) {
-        # Handle Batch lines (e.g., "MT202COV: 2")
         if (match($0, /BIC: ([A-Z0-9]+),/)) {
-            bic = substr($0, RSTART+5, RLENGTH-6);  # Extract BIC
+            bic = substr($0, RSTART+5, RLENGTH-6);
             cat = bic_category[bic];
             if (cat) {
-                # Process message types after BIC
                 rest = substr($0, RSTART+RLENGTH);
                 while (match(rest, /([A-Z0-9]+): *([0-9]+)/)) {
                     msg_type = substr(rest, RSTART, RLENGTH);
@@ -53,15 +49,12 @@ BEGIN {
 }
 
 END {
-    # Sort message types alphabetically
     num_msg = asorti(msg_types, sorted_msg);
     
-    # Print header
     printf "%-20s", "";
     for (c = 1; c <= num_cats; c++) printf "%-10s", cat_order[c];
     print "";
     
-    # Print counts per message type
     for (i = 1; i <= num_msg; i++) {
         msg = sorted_msg[i];
         printf "%-20s", msg;
