@@ -18,15 +18,17 @@ BEGIN {
 
 {
     if ($0 ~ /Sending BIC:/) {
-        # Handle Sending lines (e.g., "... - MT103")
-        if (match($0, /Sending BIC: ([A-Z0-9]+).* - ([A-Z0-9]+)$/)) {
-            bic = substr($0, RSTART+12, RLENGTH-12);
-            split(substr($0, RSTART, RLENGTH), m, / - /);
-            msg_type = m[2];
-            cat = bic_category[m[1]];
-            if (cat) {
-                counts[msg_type][cat]++;
-                msg_types[msg_type] = 1;
+        # Improved Sending BIC parsing
+        if (match($0, /Sending BIC: ([A-Z0-9]+)/)) {
+            bic = substr($0, RSTART+12, RLENGTH-12);  # Extract BIC
+            # Now find message type after last " - "
+            if (match($0, / - ([A-Z0-9]+)$/)) {
+                msg_type = substr($0, RSTART+3, RLENGTH-3);
+                cat = bic_category[bic];
+                if (cat) {
+                    counts[msg_type][cat]++;
+                    msg_types[msg_type] = 1;
+                }
             }
         }
     }
