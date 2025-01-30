@@ -6,13 +6,12 @@ SMALL="SQWERTYU,SQWERTYI"
 
 awk -v BIG="$BIG" -v MEDIUM="$MEDIUM" -v SMALL="$SMALL" '
 BEGIN {
-    split(BIG, big_bics, ",");
-    for (i in big_bics) bic_category[big_bics[i]] = "BIG";
-    split(MEDIUM, medium_bics, ",");
-    for (i in medium_bics) bic_category[medium_bics[i]] = "MEDIUM";
-    split(SMALL, small_bics, ",");
-    for (i in small_bics) bic_category[small_bics[i]] = "SMALL";
+    # Populate BIC categories
+    split(BIG, big_bics, ","); for (i in big_bics) bic_category[big_bics[i]] = "BIG";
+    split(MEDIUM, medium_bics, ","); for (i in medium_bics) bic_category[medium_bics[i]] = "MEDIUM";
+    split(SMALL, small_bics, ","); for (i in small_bics) bic_category[small_bics[i]] = "SMALL";
     
+    # Category order for output
     num_cats = 3;
     cat_order[1] = "BIG";
     cat_order[2] = "MEDIUM";
@@ -21,11 +20,12 @@ BEGIN {
 
 {
     if ($0 ~ /Sending BIC:/) {
-        # Process Sending lines (unchanged)
-        if (match($0, /Sending BIC: ([A-Z0-9]+).* - ([A-Z0-9]+)/, m)) {
-            bic = m[1];
+        # Handle Sending lines (e.g., "... - MT103")
+        if (match($0, /Sending BIC: ([A-Z0-9]+).* - ([A-Z0-9]+)$/)) {
+            bic = substr($0, RSTART+12, RLENGTH-12);
+            split(substr($0, RSTART, RLENGTH), m, / - /);
             msg_type = m[2];
-            cat = bic_category[bic];
+            cat = bic_category[m[1]];
             if (cat) {
                 counts[msg_type][cat]++;
                 msg_types[msg_type] = 1;
@@ -33,22 +33,19 @@ BEGIN {
         }
     }
     else if ($0 ~ /BATCH BIC:/) {
-        # Process both "BATCH BIC" and "FIN BATCH BIC" lines
-        if (match($0, /BIC: ([A-Z0-9]+),/, m)) {
-            bic = m[1];
+        # Handle Batch lines (e.g., "MT202COV: 2")
+        if (match($0, /BIC: ([A-Z0-9]+),/)) {
+            bic = substr($0, RSTART+5, RLENGTH-6);  # Extract BIC
             cat = bic_category[bic];
             if (cat) {
-                # Extract everything after BIC
-                rest = substr($0, RSTART + RLENGTH);
-                # Split into components like "MT103: 6"
-                n = split(rest, parts, /,[[:space:]]*/);
-                for (i = 1; i <= n; i++) {
-                    if (match(parts[i], /^[[:space:]]*([A-Z0-9]+):[[:space:]]*([0-9]+)/, m_part)) {
-                        msg_type = m_part[1];
-                        count = m_part[2];
-                        counts[msg_type][cat] += count;
-                        msg_types[msg_type] = 1;
-                    }
+                # Process message types after BIC
+                rest = substr($0, RSTART+RLENGTH);
+                while (match(rest, /([A-Z0-9]+): *([0-9]+)/)) {
+                    msg_type = substr(rest, RSTART, RLENGTH);
+                    split(msg_type, parts, /: */);
+                    counts[parts[1]][cat] += parts[2];
+                    msg_types[parts[1]] = 1;
+                    rest = substr(rest, RSTART+RLENGTH);
                 }
             }
         }
@@ -56,6 +53,22 @@ BEGIN {
 }
 
 END {
-    # (Remaining code unchanged - same sorting and output logic)
-    # ... [rest of the END block]
+    # Sort message types alphabetically
+    num_msg = asorti(msg_types, sorted_msg);
+    
+    # Print header
+    printf "%-20s", "";
+    for (c = 1; c <= num_cats; c++) printf "%-10s", cat_order[c];
+    print "";
+    
+    # Print counts per message type
+    for (i = 1; i <= num_msg; i++) {
+        msg = sorted_msg[i];
+        printf "%-20s", msg;
+        for (c = 1; c <= num_cats; c++) {
+            cat = cat_order[c];
+            printf "%-10d", (counts[msg][cat] ? counts[msg][cat] : 0);
+        }
+        print "";
+    }
 }' "$1"
