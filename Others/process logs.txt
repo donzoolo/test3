@@ -5,79 +5,102 @@ declare -A CATEGORIES=(
     ["BIG"]="BQWERTYU,BQWERTYI"
     ["MEDIUM"]="MQWERTYU,MQWERTYI"
     ["SMALL"]="SQWERTYU,SQWERTYI"
-    ["LARGE"]="LQWERTYU,LQWERTYI"  # Example additional category
 )
 
-awk -v categories_str="${!CATEGORIES[*]}" '
+# Export categories for AWK
+export CATEGORIES_STR="${!CATEGORIES[*]}"
+for category in "${!CATEGORIES[@]}"; do
+    export "CATEGORIES_$category"="${CATEGORIES[$category]}"
+done
+
+awk '
 BEGIN {
-    # Split categories into array and create bic mapping
-    split(categories_str, categories, " ");
-    for (cat in categories) {
-        actual_cat = categories[cat];
-        split(ENVIRON["CATEGORIES_" actual_cat], bics, ",");
-        for (i in bics) bic_to_category[bics[i]] = actual_cat;
+    # Split categories from environment variable
+    split(ENVIRON["CATEGORIES_STR"], categories, " ");
+    
+    # Create BIC-to-category mapping
+    for (i in categories) {
+        cat = categories[i];
+        split(ENVIRON["CATEGORIES_" cat], bics, ",");
+        for (j in bics) bic_to_category[bics[j]] = cat;
     }
     
-    # Calculate column widths
+    # Initialize column settings
     msg_col_width = 15;
     num_col_width = 10;
-    total_width = msg_col_width + 3;  # 3 for borders
-    
-    # Build header and separator
-    header = sprintf("| %-*s |", msg_col_width, "");
-    separator = "-------------------------";
-    for (c in categories) {
-        cat = categories[c];
-        header = header sprintf(" %-*s |", num_col_width, cat);
-        separator = separator "------------------";
-        col_order[++num_cols] = cat;
-        total_width += num_col_width + 3;  # +3 for spaces and pipes
-    }
-    header = header sprintf(" %-*s |", num_col_width, "SUM");
-    separator = separator "------------------|";
-    total_width += num_col_width + 3;
+    separator = "------------------------------------------------------------";
 }
 
-{
-    # Processing logic remains the same as previous versions
-    # ... (omitted for brevity, use the same regex logic as before)
+/Sending BIC:|BATCH BIC:/ {
+    # Process Sending lines
+    if ($0 ~ /Sending BIC:/) {
+        if (match($0, /Sending BIC: ([A-Z0-9]+).* - ([A-Z0-9]+)$/)) {
+            bic = substr($0, RSTART+12, RLENGTH-12);
+            split(substr($0, RSTART, RLENGTH), m, / - /);
+            msg_type = m[2];
+            cat = bic_to_category[m[1]];
+            if (cat) {
+                counts[msg_type][cat]++;
+                msg_types[msg_type] = 1;
+            }
+        }
+    }
+    # Process Batch lines
+    else if (match($0, /BIC: ([A-Z0-9]+),/)) {
+        bic = substr($0, RSTART+5, RLENGTH-6);
+        cat = bic_to_category[bic];
+        if (cat) {
+            rest = substr($0, RSTART+RLENGTH);
+            while (match(rest, /([A-Z0-9]+): *([0-9]+)/)) {
+                msg_type = substr(rest, RSTART, RLENGTH);
+                split(msg_type, parts, /: */);
+                counts[parts[1]][cat] += parts[2];
+                msg_types[parts[1]] = 1;
+                rest = substr(rest, RSTART+RLENGTH);
+            }
+        }
+    }
 }
 
 END {
-    # Print table header
-    print substr(separator, 1, total_width);
-    print header;
-    print substr(separator, 1, total_width);
-
+    # Sort message types
+    num_msg = asorti(msg_types, sorted_msg);
+    
+    # Build header
+    printf "%s\n", separator;
+    printf "| %-15s |", "";
+    for (i in categories) {
+        printf " %-9s |", categories[i];
+    }
+    printf " %-9s |\n", "SUM";
+    printf "%s\n", separator;
+    
     # Print data rows
     for (i = 1; i <= num_msg; i++) {
         msg = sorted_msg[i];
+        printf "| %-15s |", msg;
         row_total = 0;
-        row = sprintf("| %-*s |", msg_col_width, msg);
-        
-        # Get counts per category
-        for (c = 1; c <= num_cols; c++) {
-            cat = col_order[c];
+        for (j in categories) {
+            cat = categories[j];
             count = counts[msg][cat] ? counts[msg][cat] : 0;
-            row = row sprintf(" %*d |", num_col_width-1, count);
+            printf " %9d |", count;
             row_total += count;
             col_total[cat] += count;
         }
-        
-        # Add SUM column
-        print row sprintf(" %*d |", num_col_width-1, row_total);
+        printf " %9d |\n", row_total;
         grand_total += row_total;
     }
-
+    
     # Print totals row
-    print substr(separator, 1, total_width);
-    total_row = sprintf("| %-*s |", msg_col_width, "SUM");
+    printf "%s\n", separator;
+    printf "| %-15s |", "SUM";
     sum_total = 0;
-    for (c = 1; c <= num_cols; c++) {
-        cat = col_order[c];
-        total_row = total_row sprintf(" %*d |", num_col_width-1, col_total[cat]);
-        sum_total += col_total[cat];
+    for (j in categories) {
+        cat = categories[j];
+        total = col_total[cat] ? col_total[cat] : 0;
+        printf " %9d |", total;
+        sum_total += total;
     }
-    print total_row sprintf(" %*d |", num_col_width-1, sum_total);
-    print substr(separator, 1, total_width);
+    printf " %9d |\n", sum_total;
+    printf "%s\n", separator;
 }' "$1"
