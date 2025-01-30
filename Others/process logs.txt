@@ -21,7 +21,6 @@ BEGIN {
 
 {
     if ($0 ~ /Sending BIC:/) {
-        # Use single regex to capture BIC and message type
         if (match($0, /Sending BIC: ([A-Z0-9]+).* - ([A-Z0-9]+)$/, m)) {
             bic = m[1];
             msg_type = m[2];
@@ -53,17 +52,39 @@ BEGIN {
 END {
     num_msg = asorti(msg_types, sorted_msg);
     
+    # Print header with SUM column
     printf "%-20s", "";
     for (c = 1; c <= num_cats; c++) printf "%-10s", cat_order[c];
-    print "";
+    printf "%-10s\n", "SUM";
     
+    # Initialize totals
+    delete col_total;  # Column totals
+    col_total["BIG"] = col_total["MEDIUM"] = col_total["SMALL"] = 0;
+    grand_total = 0;
+    
+    # Print message rows with row totals
     for (i = 1; i <= num_msg; i++) {
         msg = sorted_msg[i];
         printf "%-20s", msg;
+        row_total = 0;
         for (c = 1; c <= num_cats; c++) {
             cat = cat_order[c];
-            printf "%-10d", (counts[msg][cat] ? counts[msg][cat] : 0);
+            count = (counts[msg][cat] ? counts[msg][cat] : 0);
+            printf "%-10d", count;
+            col_total[cat] += count;
+            row_total += count;
         }
-        print "";
+        printf "%-10d\n", row_total;
+        grand_total += row_total;
     }
+    
+    # Print column totals row
+    printf "%-20s", "SUM";
+    sum_cols = 0;
+    for (c = 1; c <= num_cats; c++) {
+        cat = cat_order[c];
+        printf "%-10d", col_total[cat];
+        sum_cols += col_total[cat];
+    }
+    printf "%-10d\n", sum_cols);
 }' "$1"
