@@ -1,0 +1,71 @@
+// Name: Multi-URL Screenshot Capture
+// Steps: Run this snippet 3 times (once to start, once per page)
+
+// 1. First run: Start from ANY page
+// 2. Second run: After first navigation
+// 3. Third run: After second navigation
+
+(async function() {
+    // Configuration
+    const sites = [
+        { url: 'http://something.com/report', filename: 'report.png' },
+        { url: 'http://something2.com/report2', filename: 'report2.png' }
+    ];
+
+    // State management
+    let step = parseInt(localStorage.getItem('screenshot-step') || '0');
+    const isFinalStep = step >= sites.length;
+
+    // Reset state if completed
+    if (isFinalStep) {
+        localStorage.removeItem('screenshot-step');
+        alert('Screenshot process completed!');
+        return;
+    }
+
+    // Get current site info
+    const currentSite = sites[step];
+    const isOnTargetPage = window.location.href === currentSite.url;
+
+    // Navigation logic
+    if (!isOnTargetPage) {
+        localStorage.setItem('screenshot-step', step);
+        window.location.href = currentSite.url;
+        return;
+    }
+
+    // Screenshot logic
+    const injectScript = document.createElement('script');
+    injectScript.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
+    document.head.appendChild(injectScript);
+
+    await new Promise(resolve => injectScript.onload = resolve);
+    
+    // Add delay for page stability
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Capture full page
+    const canvas = await html2canvas(document.body, {
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        scrollX: 0,
+        scrollY: 0
+    });
+
+    // Create download link
+    const link = document.createElement('a');
+    link.download = currentSite.filename;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    // Update state and navigate to next
+    step++;
+    localStorage.setItem('screenshot-step', step);
+    
+    if (step < sites.length) {
+        window.location.href = sites[step].url;
+    } else {
+        localStorage.removeItem('screenshot-step');
+    }
+})();
