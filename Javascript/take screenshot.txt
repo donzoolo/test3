@@ -1,71 +1,96 @@
-// Name: Multi-URL Screenshot Capture
-// Steps: Run this snippet 3 times (once to start, once per page)
+manifest.json
+{
+  "manifest_version": 3,
+  "name": "Report Screenshotter",
+  "version": "1.0",
+  "permissions": [
+    "tabs",
+    "downloads",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Capture Reports"
+  }
+}
+background.js
+// Define your URLs and filenames.
+const tasks = [
+  { url: "http://something.com/report", filename: "report.png" },
+  { url: "http://something2.com/report2", filename: "report2.png" }
+];
 
-// 1. First run: Start from ANY page
-// 2. Second run: After first navigation
-// 3. Third run: After second navigation
-
-(async function() {
-    // Configuration
-    const sites = [
-        { url: 'http://something.com/report', filename: 'report.png' },
-        { url: 'http://something2.com/report2', filename: 'report2.png' }
-    ];
-
-    // State management
-    let step = parseInt(localStorage.getItem('screenshot-step') || '0');
-    const isFinalStep = step >= sites.length;
-
-    // Reset state if completed
-    if (isFinalStep) {
-        localStorage.removeItem('screenshot-step');
-        alert('Screenshot process completed!');
-        return;
-    }
-
-    // Get current site info
-    const currentSite = sites[step];
-    const isOnTargetPage = window.location.href === currentSite.url;
-
-    // Navigation logic
-    if (!isOnTargetPage) {
-        localStorage.setItem('screenshot-step', step);
-        window.location.href = currentSite.url;
-        return;
-    }
-
-    // Screenshot logic
-    const injectScript = document.createElement('script');
-    injectScript.src = 'https://html2canvas.hertzen.com/dist/html2canvas.min.js';
-    document.head.appendChild(injectScript);
-
-    await new Promise(resolve => injectScript.onload = resolve);
-    
-    // Add delay for page stability
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Capture full page
-    const canvas = await html2canvas(document.body, {
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: 0
+/**
+ * Returns a promise that resolves with the tab id when the tab finishes loading.
+ */
+function updateTab(url) {
+  return new Promise((resolve) => {
+    chrome.tabs.update({ url: url }, (tab) => {
+      // Listen for the tab update (when the page load status becomes "complete").
+      chrome.tabs.onUpdated.addListener(function listener(tabId, changeInfo) {
+        if (tabId === tab.id && changeInfo.status === "complete") {
+          chrome.tabs.onUpdated.removeListener(listener);
+          // Add a slight delay to be sure all rendering is complete.
+          setTimeout(() => resolve(tabId), 1000);
+        }
+      });
     });
+  });
+}
 
-    // Create download link
-    const link = document.createElement('a');
-    link.download = currentSite.filename;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+/**
+ * Returns a promise that resolves with the captured data URL of the visible tab.
+ */
+function captureTab() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+      if (chrome.runtime.lastError) {
+        return reject(chrome.runtime.lastError);
+      }
+      resolve(dataUrl);
+    });
+  });
+}
 
-    // Update state and navigate to next
-    step++;
-    localStorage.setItem('screenshot-step', step);
-    
-    if (step < sites.length) {
-        window.location.href = sites[step].url;
-    } else {
-        localStorage.removeItem('screenshot-step');
-    }
-})();
+/**
+ * Triggers a download of the provided data URL using chrome.downloads.download.
+ */
+function downloadDataUrl(dataUrl, filename) {
+  chrome.downloads.download({
+    url: dataUrl,
+    filename: filename,
+    saveAs: false
+  });
+}
+
+/**
+ * Processes all tasks sequentially.
+ */
+async function processTasks() {
+  // Query the active tab in the current window.
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!activeTab) {
+    console.error("No active tab found!");
+    return;
+  }
+
+  // Loop through each task sequentially.
+  for (const task of tasks) {
+    console.log(`Navigating to ${task.url} ...`);
+    await updateTab(task.url);
+    console.log(`Page loaded. Capturing screenshot...`);
+    const dataUrl = await captureTab();
+    console.log(`Screenshot captured. Downloading as ${task.filename} ...`);
+    downloadDataUrl(dataUrl, task.filename);
+    // Optional: Wait a few seconds before processing the next URL.
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  console.log("All tasks completed.");
+}
+
+// When the user clicks the extension’s icon, run the process.
+chrome.action.onClicked.addListener(() => {
+  processTasks().catch((err) => console.error("Error processing tasks:", err));
+});
