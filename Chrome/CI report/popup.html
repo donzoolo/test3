@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Report Capture</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 10px; width: 320px; }
+    label { display: block; margin-top: 10px; }
+    input { width: 100%; padding: 5px; }
+    button { margin-top: 15px; padding: 8px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h3>Enter Report Details</h3>
+  <form id="reportForm">
+    <label>
+      IT URL:
+      <input type="url" id="itUrl" placeholder="http://example.com/it-report" required>
+    </label>
+    <label>
+      AT URL:
+      <input type="url" id="atUrl" placeholder="http://example.com/at-report" required>
+    </label>
+    <label>
+      JIRA Number:
+      <input type="text" id="jiraNumber" placeholder="ABC-123" required>
+    </label>
+    <label>
+      Release Number:
+      <input type="text" id="releaseNumber" placeholder="1.0.0" required>
+    </label>
+    <button type="submit">Run Capture</button>
+  </form>
+
+  <script src="popup.js"></script>
+</body>
+</html>

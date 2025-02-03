@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Custom Report Capture",
+  "version": "1.0",
+  "permissions": [
+    "tabs",
+    "downloads",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Capture Reports",
+    "default_popup": "popup.html"
+  }
+}
