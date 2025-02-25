@@ -12,6 +12,7 @@ function waitForTabLoad(tabId) {
         chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
             if (updatedTabId === tabId && changeInfo.status === 'complete') {
                 chrome.tabs.onUpdated.removeListener(listener);
+                console.log(`Tab ${tabId} fully loaded`);
                 resolve();
             }
         });
@@ -27,21 +28,23 @@ async function processPage(url, releaseNumber, jiraNumber, type) {
         console.log(`Creating new tab for ${type} URL: ${url}`);
         const tab = await chrome.tabs.create({ url, active: true });
         tabId = tab.id;
+        console.log(`Created tab ${tabId} in window ${tab.windowId}`);
         await waitForTabLoad(tabId);
-        console.log(`Loaded ${type} page: ${url}`);
 
         // Verify the tab loaded correctly
         const loadedTab = await chrome.tabs.get(tabId);
+        console.log(`Tab ${tabId} URL after load: ${loadedTab.url}`);
         if (!loadedTab.url.startsWith(url)) {
             throw new Error(`Tab URL mismatch: expected ${url}, got ${loadedTab.url}`);
         }
 
         // Capture screenshot
-        console.log(`Capturing ${type} screenshot for tab ${tabId}`);
+        console.log(`Attempting to capture ${type} screenshot for tab ${tabId} in window ${loadedTab.windowId}`);
         const screenshotDataUrl = await chrome.tabs.captureVisibleTab(loadedTab.windowId, { format: 'png' });
         if (!screenshotDataUrl) {
             throw new Error('Screenshot capture returned no data');
         }
+        console.log(`Screenshot captured successfully for ${type}`);
         const screenshotFilename = `${releaseNumber} XXX ${jiraNumber} ${type}.png`;
         await chrome.downloads.download({
             url: screenshotDataUrl,
