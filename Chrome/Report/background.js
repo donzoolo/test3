@@ -15,29 +15,30 @@ function waitForTabLoad(tabId) {
                 resolve();
             }
         });
-        // Timeout in case loading fails
         setTimeout(() => reject(new Error('Tab load timeout')), 30000);
     });
 }
 
 // Process individual page (IT or AT)
-async function processPage(tabId, url, releaseNumber, jiraNumber, type) {
+async function processPage(url, releaseNumber, jiraNumber, type) {
+    let tabId;
     try {
-        // Update tab to target URL
-        console.log(`Navigating to ${type} URL: ${url}`);
-        await chrome.tabs.update(tabId, { url });
+        // Create a new tab for the URL
+        console.log(`Creating new tab for ${type} URL: ${url}`);
+        const tab = await chrome.tabs.create({ url, active: true });
+        tabId = tab.id;
         await waitForTabLoad(tabId);
         console.log(`Loaded ${type} page: ${url}`);
 
-        // Verify the tab is still active and matches our URL
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (tab.id !== tabId || !tab.url.startsWith(url)) {
-            throw new Error(`Tab mismatch or URL changed: expected ${url}, got ${tab.url}`);
+        // Verify the tab loaded correctly
+        const loadedTab = await chrome.tabs.get(tabId);
+        if (!loadedTab.url.startsWith(url)) {
+            throw new Error(`Tab URL mismatch: expected ${url}, got ${loadedTab.url}`);
         }
 
         // Capture screenshot
         console.log(`Capturing ${type} screenshot for tab ${tabId}`);
-        const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+        const screenshotDataUrl = await chrome.tabs.captureVisibleTab(loadedTab.windowId, { format: 'png' });
         if (!screenshotDataUrl) {
             throw new Error('Screenshot capture returned no data');
         }
@@ -51,7 +52,7 @@ async function processPage(tabId, url, releaseNumber, jiraNumber, type) {
 
         // Download report file
         const reportSuffix = type === 'it' ? 'zip/Allure_20Report.zip' : 'zip/Serenity_20Illustrated_20Report.zip';
-        const reportUrl = `${tab.url}${reportSuffix}`;
+        const reportUrl = `${loadedTab.url}${reportSuffix}`;
         const reportFilename = `${releaseNumber} XXX ${jiraNumber} ${type} - ${type === 'it' ? 'Allure' : 'Serenity'}.zip`;
         
         await chrome.downloads.download({
@@ -63,6 +64,11 @@ async function processPage(tabId, url, releaseNumber, jiraNumber, type) {
     } catch (error) {
         console.error(`Error processing ${type} page:`, error);
         throw error;
+    } finally {
+        // Clean up: remove the tab if it was created
+        if (tabId) {
+            chrome.tabs.remove(tabId).catch(err => console.error('Error closing tab:', err));
+        }
     }
 }
 
@@ -74,17 +80,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         (async () => {
             try {
                 const { itUrl, atUrl, releaseNumber, jiraNumber } = message.data;
-                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                if (!tab) {
-                    throw new Error('No active tab found');
-                }
-                console.log(`Starting process with tab ${tab.id}`);
 
-                // Process IT page
-                await processPage(tab.id, itUrl, releaseNumber, jiraNumber, 'it');
+                // Process IT page in a new tab
+                await processPage(itUrl, releaseNumber, jiraNumber, 'it');
                 
-                // Process AT page
-                await processPage(tab.id, atUrl, releaseNumber, jiraNumber, 'at');
+                // Process AT page in a new tab
+                await processPage(atUrl, releaseNumber, jiraNumber, 'at');
 
                 sendResponse({ success: true });
             } catch (error) {
