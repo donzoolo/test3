@@ -27,17 +27,28 @@ async function processPage(tabId, url, releaseNumber, jiraNumber, type) {
         console.log(`Loaded ${type} page: ${url}`);
 
         // Capture screenshot
-        const screenshotDataUrl = await chrome.tabs.captureVisibleTab({ format: 'png' });
-        const screenshotFilename = `${releaseNumber} XXX ${jiraNumber} ${type}.png`;
-        chrome.downloads.download({
-            url: screenshotDataUrl,
-            filename: screenshotFilename,
-            saveAs: false
-        });
-        console.log(`Downloaded screenshot: ${screenshotFilename}`);
+        try {
+            const screenshotDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+            if (!screenshotDataUrl) {
+                throw new Error('Failed to capture screenshot');
+            }
+            const screenshotFilename = `${releaseNumber} XXX ${jiraNumber} ${type}.png`;
+            await chrome.downloads.download({
+                url: screenshotDataUrl,
+                filename: screenshotFilename,
+                saveAs: false
+            });
+            console.log(`Downloaded screenshot: ${screenshotFilename}`);
+        } catch (screenshotError) {
+            console.error(`Failed to capture ${type} screenshot:`, screenshotError);
+            throw screenshotError;
+        }
 
         // Get current tab URL and download report file
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.url) {
+            throw new Error('Could not get tab URL');
+        }
         const reportSuffix = type === 'it' ? 'zip/Allure_20Report.zip' : 'zip/Serenity_20Illustrated_20Report.zip';
         const reportUrl = `${tab.url}${reportSuffix}`;
         const reportFilename = `${releaseNumber} XXX ${jiraNumber} ${type} - ${type === 'it' ? 'Allure' : 'Serenity'}.zip`;
@@ -63,6 +74,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
                 const { itUrl, atUrl, releaseNumber, jiraNumber } = message.data;
                 const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (!tab) {
+                    throw new Error('No active tab found');
+                }
 
                 // Process IT page
                 await processPage(tab.id, itUrl, releaseNumber, jiraNumber, 'it');

@@ -4,10 +4,10 @@
   "version": "1.0",
   "description": "Downloads test reports and screenshots from IT and AT URLs",
   "permissions": [
-    "activeTab",
-    "downloads",
-    "tabs",
-    "scripting"
+    "activeTab",           // For interacting with the current tab
+    "downloads",          // For downloading files
+    "tabs",               // For tab updates and URL access
+    "scripting"           // For potential script injection if needed
   ],
   "action": {
     "default_popup": "popup.html"
