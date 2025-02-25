@@ -8,13 +8,15 @@ const keepAliveInterval = setInterval(() => {
 
 // Wait for tab to be fully loaded
 function waitForTabLoad(tabId) {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         chrome.tabs.onUpdated.addListener(function listener(updatedTabId, changeInfo) {
             if (updatedTabId === tabId && changeInfo.status === 'complete') {
                 chrome.tabs.onUpdated.removeListener(listener);
                 resolve();
             }
         });
+        // Timeout in case loading fails
+        setTimeout(() => reject(new Error('Tab load timeout')), 30000);
     });
 }
 
@@ -22,33 +24,32 @@ function waitForTabLoad(tabId) {
 async function processPage(tabId, url, releaseNumber, jiraNumber, type) {
     try {
         // Update tab to target URL
+        console.log(`Navigating to ${type} URL: ${url}`);
         await chrome.tabs.update(tabId, { url });
         await waitForTabLoad(tabId);
         console.log(`Loaded ${type} page: ${url}`);
 
-        // Capture screenshot
-        try {
-            const screenshotDataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
-            if (!screenshotDataUrl) {
-                throw new Error('Failed to capture screenshot');
-            }
-            const screenshotFilename = `${releaseNumber} XXX ${jiraNumber} ${type}.png`;
-            await chrome.downloads.download({
-                url: screenshotDataUrl,
-                filename: screenshotFilename,
-                saveAs: false
-            });
-            console.log(`Downloaded screenshot: ${screenshotFilename}`);
-        } catch (screenshotError) {
-            console.error(`Failed to capture ${type} screenshot:`, screenshotError);
-            throw screenshotError;
+        // Verify the tab is still active and matches our URL
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab.id !== tabId || !tab.url.startsWith(url)) {
+            throw new Error(`Tab mismatch or URL changed: expected ${url}, got ${tab.url}`);
         }
 
-        // Get current tab URL and download report file
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab?.url) {
-            throw new Error('Could not get tab URL');
+        // Capture screenshot
+        console.log(`Capturing ${type} screenshot for tab ${tabId}`);
+        const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+        if (!screenshotDataUrl) {
+            throw new Error('Screenshot capture returned no data');
         }
+        const screenshotFilename = `${releaseNumber} XXX ${jiraNumber} ${type}.png`;
+        await chrome.downloads.download({
+            url: screenshotDataUrl,
+            filename: screenshotFilename,
+            saveAs: false
+        });
+        console.log(`Downloaded screenshot: ${screenshotFilename}`);
+
+        // Download report file
         const reportSuffix = type === 'it' ? 'zip/Allure_20Report.zip' : 'zip/Serenity_20Illustrated_20Report.zip';
         const reportUrl = `${tab.url}${reportSuffix}`;
         const reportFilename = `${releaseNumber} XXX ${jiraNumber} ${type} - ${type === 'it' ? 'Allure' : 'Serenity'}.zip`;
@@ -77,6 +78,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 if (!tab) {
                     throw new Error('No active tab found');
                 }
+                console.log(`Starting process with tab ${tab.id}`);
 
                 // Process IT page
                 await processPage(tab.id, itUrl, releaseNumber, jiraNumber, 'it');
@@ -93,7 +95,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
         })();
 
-        // Return true to indicate async response
-        return true;
+        return true; // Indicate async response
     }
 });
