@@ -147,3 +147,117 @@ if __name__ == "__main__":
             print("No assets found for this component.")
     except Exception as e:
         print(f"Error: {e}")
+        
+        
+        
+        
+        
+        
+        
+        
+        ====
+        
+import requests
+import json
+from requests.auth import HTTPBasicAuth
+
+# Nexus connection details
+nexus_url = "http://localhost:8081"  # Replace with your Nexus instance URL
+username = "admin"                   # Replace with your Nexus username
+password = "admin123"               # Replace with your Nexus password
+
+# Function to fetch components from Nexus with pagination
+def fetch_nexus_components(repository, search_params=None):
+    """
+    Fetch components from Sonatype Nexus using REST API v1 with pagination.
+    
+    Args:
+        repository (str): The name of the repository to search in
+        search_params (dict): Optional dictionary of additional search parameters
+        
+    Returns:
+        list: List of all component items fetched across all pages
+    """
+    # Base endpoint for component search
+    endpoint = f"{nexus_url}/service/rest/v1/components"
+    
+    # Default parameters
+    params = {
+        "repository": repository
+    }
+    
+    # Add additional search parameters if provided
+    if search_params:
+        params.update(search_params)
+    
+    all_items = []
+    continuation_token = None
+    
+    try:
+        while True:
+            # Add continuation token to params if it exists
+            if continuation_token:
+                params["continuationToken"] = continuation_token
+            
+            # Make the GET request with basic authentication
+            response = requests.get(
+                endpoint,
+                auth=HTTPBasicAuth(username, password),
+                params=params,
+                headers={"Accept": "application/json"},
+                timeout=30
+            )
+            
+            # Check if the request was successful
+            response.raise_for_status()
+            
+            # Parse the JSON response
+            result = response.json()
+            
+            # Add items to the collection
+            if "items" in result and result["items"]:
+                all_items.extend(result["items"])
+                print(f"Fetched {len(result['items'])} items, total so far: {len(all_items)}")
+            else:
+                print("No more items found.")
+                break
+            
+            # Check for continuation token
+            continuation_token = result.get("continuationToken")
+            if not continuation_token:
+                print("No more pages to fetch.")
+                break
+                
+        return all_items
+        
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP error occurred: {http_err}")
+        return None
+    except requests.exceptions.RequestException as err:
+        print(f"Error occurred: {err}")
+        return None
+
+# Example usage
+def main():
+    # Specify the repository
+    target_repo = "docker-internal"
+    
+    # Define additional search parameters for Docker
+    search_params = {
+        "name": "my-app",         # Search for Docker image by name
+        "version": "1.0.0"        # Search for specific version
+    }
+    
+    # Fetch components
+    components = fetch_nexus_components(target_repo, search_params)
+    
+    # Print the results
+    if components:
+        print(f"Total components found: {len(components)}")
+        for item in components:
+            print(json.dumps(item, indent=2))
+    else:
+        print("No components found or an error occurred.")
+
+if __name__ == "__main__":
+    main()
