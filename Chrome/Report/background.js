@@ -20,32 +20,41 @@ function waitForTabLoad(tabId) {
     });
 }
 
+// Capture screenshot via content script
+function captureScreenshot(tabId) {
+    return new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tabId, { action: 'captureScreenshot' }, (response) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(`Message error: ${chrome.runtime.lastError.message}`));
+            } else if (response && response.success) {
+                resolve(response.dataUrl);
+            } else {
+                reject(new Error(response?.error || 'Screenshot capture failed'));
+            }
+        });
+    });
+}
+
 // Process individual page (IT or AT)
-async function processPage(url, releaseNumber, jiraNumber, type) {
+async function processPage(url, releaseNumber, jiraNumber, environmentValue, type) {
     let tabId;
     try {
-        // Create a new tab for the URL
         console.log(`Creating new tab for ${type} URL: ${url}`);
         const tab = await chrome.tabs.create({ url, active: true });
         tabId = tab.id;
-        console.log(`Created tab ${tabId} in window ${tab.windowId}`);
+        console.log(`Created tab ${tabId}`);
         await waitForTabLoad(tabId);
 
-        // Verify the tab loaded correctly
         const loadedTab = await chrome.tabs.get(tabId);
         console.log(`Tab ${tabId} URL after load: ${loadedTab.url}`);
         if (!loadedTab.url.startsWith(url)) {
             throw new Error(`Tab URL mismatch: expected ${url}, got ${loadedTab.url}`);
         }
 
-        // Capture screenshot
-        console.log(`Attempting to capture ${type} screenshot for tab ${tabId} in window ${loadedTab.windowId}`);
-        const screenshotDataUrl = await chrome.tabs.captureVisibleTab(loadedTab.windowId, { format: 'png' });
-        if (!screenshotDataUrl) {
-            throw new Error('Screenshot capture returned no data');
-        }
-        console.log(`Screenshot captured successfully for ${type}`);
-        const screenshotFilename = `${releaseNumber} XXX ${jiraNumber} ${type}.png`;
+        // Capture screenshot using content script
+        console.log(`Capturing ${type} screenshot for tab ${tabId}`);
+        const screenshotDataUrl = await captureScreenshot(tabId);
+        const screenshotFilename = `${releaseNumber} ${environmentValue} ${jiraNumber} ${type}.png`;
         await chrome.downloads.download({
             url: screenshotDataUrl,
             filename: screenshotFilename,
@@ -56,7 +65,7 @@ async function processPage(url, releaseNumber, jiraNumber, type) {
         // Download report file
         const reportSuffix = type === 'it' ? 'zip/Allure_20Report.zip' : 'zip/Serenity_20Illustrated_20Report.zip';
         const reportUrl = `${loadedTab.url}${reportSuffix}`;
-        const reportFilename = `${releaseNumber} XXX ${jiraNumber} ${type} - ${type === 'it' ? 'Allure' : 'Serenity'}.zip`;
+        const reportFilename = `${releaseNumber} ${environmentValue} ${jiraNumber} ${type} - ${type === 'it' ? 'Allure' : 'Serenity'}.zip`;
         
         await chrome.downloads.download({
             url: reportUrl,
@@ -68,7 +77,6 @@ async function processPage(url, releaseNumber, jiraNumber, type) {
         console.error(`Error processing ${type} page:`, error);
         throw error;
     } finally {
-        // Clean up: remove the tab if it was created
         if (tabId) {
             chrome.tabs.remove(tabId).catch(err => console.error('Error closing tab:', err));
         }
@@ -82,13 +90,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         
         (async () => {
             try {
-                const { itUrl, atUrl, releaseNumber, jiraNumber } = message.data;
+                const { itUrl, atUrl, releaseNumber, jiraNumber, environmentValue } = message.data;
 
                 // Process IT page in a new tab
-                await processPage(itUrl, releaseNumber, jiraNumber, 'it');
+                await processPage(itUrl, releaseNumber, jiraNumber, environmentValue, 'it');
                 
                 // Process AT page in a new tab
-                await processPage(atUrl, releaseNumber, jiraNumber, 'at');
+                await processPage(atUrl, releaseNumber, jiraNumber, environmentValue, 'at');
 
                 sendResponse({ success: true });
             } catch (error) {
