@@ -1,0 +1,64 @@
+JMeter Components and Structure (20 minutes)
+JMeter organizes tests in a hierarchical structure, and I’ll explain the main components we use while showing them in the JMeter interface. For those new to JMeter, think of it as a tool that lets you simulate users (called threads) making requests to your application, with lots of flexibility to customize behavior.
+1. Test Plan
+The Test Plan is the root of our JMeter project, stored in a .jmx file. It contains all the settings and components for our tests. We define global properties here, like the test duration, which is set to 2 hours by default using a property like ${__P(duration,7200)}. This allows Jenkins to override the duration if needed.
+2. Thread Groups
+Thread Groups are the heart of JMeter tests, representing groups of simulated users. Each thread is like one user performing actions. We have multiple Thread Groups to simulate different behaviors:
+Setup Thread Group: This runs first, performing health checks. It executes SQL queries via a JDBC Request to check the database and sends HTTP requests to verify the login IDP is working. If these fail, the test stops to avoid misleading results.
+
+Message Injection Thread Group: This simulates external systems sending messages. It listens to a FIFO queue (a first-in, first-out data structure) using a plugin called jp@gc Inter Thread Communication Preprocessor. When a message appears in the queue, it sends a single HTTP POST request to our message injection API endpoint, which may create alerts in the system.
+
+Level 1 User Thread Groups (7 total): These simulate seven client types, each with its own Thread Group to control user counts and transaction rates. The actions are identical across all seven, but they differ in:
+User count: Read from a CSV file containing usernames and passwords.
+
+Throughput: Controlled by a Precise Throughput Timer, which ensures actions occur at a steady pace, like 10 transactions per minute, set via Jenkins.
+
+Each Level 1 user:
+Reads credentials from the CSV using a CSV Data Set Config.
+
+Places an item in the Message Injection queue using a JSR223 PreProcessor with a script like ${__fifoPut(GENERATION_QUEUE,${businessUnitId})}.
+
+Logs in to the portal via an HTTP Request.
+
+Performs actions like filtering or closing alerts, grouped into Transaction Controllers (e.g., “FilterAlerts” has two HTTP Requests).
+
+In rare cases (about 5% of alerts, based on a percentage calculation), escalates an alert by placing its ID in a second FIFO queue for Level 2 users.
+
+Logs out and ends the thread.
+
+Level 2 User Thread Group: This handles escalated alerts. It listens to the second FIFO queue. When an alert ID appears, it:
+Reads the necessary user credentials and alert details from the queue (no separate CSV needed).
+
+Logs in, navigates to the alert, performs the review (via HTTP Requests), and logs out.
+
+TearDown Thread Group: This runs after all other Thread Groups finish. It executes SQL queries to log system state for troubleshooting, ensuring we have data if something goes wrong.
+
+3. Config Elements
+Config Elements set up shared settings. For example:
+CSV Data Set Config: Reads usernames and passwords for Level 1 users from a CSV file.
+
+HTTP Request Defaults: Defines common settings like the server URL, reducing repetition across HTTP Requests.
+
+Many Config Elements are reused across Thread Groups by placing them in Test Fragments, which act like reusable templates. Some are unique, like specific queue settings for the Message Injection Thread Group.
+4. PreProcessors and PostProcessors
+These modify requests or extract data. The jp@gc Inter Thread Communication Preprocessor is key for queue operations, enabling Thread Groups to communicate via two FIFO queues:
+GENERATION_QUEUE: For Level 1 users to trigger message injections.
+
+Escalation Queue: For Level 1 users to pass alerts to Level 2 users.
+
+The queues use unique combinations of data to avoid race conditions, ensuring smooth communication.
+5. Transaction Controllers
+These group related HTTP Requests into logical actions, like “FilterAlerts,” which includes two HTTP Requests. This makes the test plan easier to maintain and reports more readable, as we see response times for the entire action, not just individual requests.
+6. Timers
+The Precise Throughput Timer in Level 1 Thread Groups ensures actions occur at a consistent rate, preventing users from overwhelming the system or running too slowly. The overall test duration is fixed at 2 hours, set at the Thread Group level.
+7. Listeners
+Listeners collect and display test results. We use standard JMeter Listeners for real-time metrics and generate a JUnit Surefire report post-test. The report checks:
+Absolute thresholds: E.g., login response time must be under 50 milliseconds.
+
+Relative anomalies: Today’s 90th percentile response time must not deviate significantly from the 7-day average.
+
+Live Demo: Let me open JMeter now and walk you through the Test Plan. [Show the Test Plan, expand the Setup Thread Group to show SQL and HTTP health checks, then highlight a Level 1 Thread Group with its CSV Data Set, Precise Throughput Timer, and Transaction Controllers. Show the Message Injection and Level 2 Thread Groups, focusing on the FIFO queue setup. Finally, show a sample report output.]
+Automation and Reporting (10 minutes)
+Our tests are fully automated via Jenkins, which runs the JMeter project nightly. The pom.xml file defines Maven dependencies, and the Jenkinsfile orchestrates the pipeline, launching tests on our RHEL machine. This setup ensures consistency and frees up our team to focus on analysis.
+The JUnit Surefire report is our key tool for anomaly detection. By comparing today’s 90th percentile response times to the 7-day average and checking absolute thresholds, we quickly spot issues like slow logins or degraded performance. These insights help us optimize the application before users notice problems.
+
