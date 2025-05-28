@@ -3,8 +3,15 @@ SELECT
     b.product,
     b.style,
     b.subject,
-    LISTAGG(s.user_id, ', ') WITHIN GROUP (ORDER BY s.user_id) as users_who_closed
+    s.user_id,
+    u.name as user_name,
+    u.token as user_token
 FROM banner b
-LEFT JOIN storage s ON JSON_EXISTS(s.storage_data, '$[*]?(@ == ' || b.id || ')')
-WHERE b.id = :banner_id  -- Replace with your parameter
-GROUP BY b.id, b.product, b.style, b.subject;
+JOIN storage s ON s.id IN (
+    SELECT s2.id 
+    FROM storage s2,
+         JSON_TABLE(s2.storage_data, '$[*]' COLUMNS (banner_id NUMBER PATH '$')) jt
+    WHERE jt.banner_id = b.id
+)
+JOIN users u ON u.id = s.user_id
+WHERE b.id = 3;  -- Replace with your banner ID
