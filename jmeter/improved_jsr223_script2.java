@@ -251,16 +251,16 @@ void setIsoNonBlockingValues() {
 void processIsoMessage(String messageTypeName, String filename, String requestType, 
                       String logPrefix, String currentBic, boolean isBlocking) {
     log.info("Sending BIC: ${currentBic} ${logPrefix} - ${messageTypeName}");
-    vars.put("message_file", filename);
-    vars.put("request_type", requestType);
+    vars.put("message_file", filename.toString());
+    vars.put("request_type", requestType.toString());
     vars.put("alerting_message", vars.get(isBlocking ? "pacs008_blocking" : "pacs008_nonblocking"));
 }
 
 void processIsoPacs008Message(String logPrefix, String currentBic, boolean isBlocking,
                              int randomOrderingFI, int orderingFiPercentage) {
     log.info("Sending BIC: ${currentBic} ${logPrefix} - PACS.008");
-    vars.put("message_file", "pacs008.xml");
-    vars.put("request_type", "pacs.008.001.08");
+    vars.put("message_file", "pacs008.xml".toString());
+    vars.put("request_type", "pacs.008.001.08".toString());
     vars.put("alerting_message", vars.get(isBlocking ? "pacs008_blocking" : "pacs008_nonblocking"));
     
     handleOrderingFiRole(randomOrderingFI, orderingFiPercentage, currentBic);
@@ -292,14 +292,14 @@ void setFinNonBlockingValues() {
 void processFinMessage(String messageTypeName, String filename, String requestType,
                       String logPrefix, String currentBic) {
     log.info("Sending BIC: ${currentBic} ${logPrefix} - ${messageTypeName}");
-    vars.put("fin_message_file", filename);
-    vars.put("fin_request_type", requestType);
+    vars.put("fin_message_file", filename.toString());
+    vars.put("fin_request_type", requestType.toString());
 }
 
 void processFinMt103Message(String logPrefix, String currentBic, int randomOrderingFI, int orderingFiPercentage) {
     log.info("Sending BIC: ${currentBic} ${logPrefix} - MT 103");
-    vars.put("fin_message_file", "mt103.txt");
-    vars.put("fin_request_type", "103");
+    vars.put("fin_message_file", "mt103.txt".toString());
+    vars.put("fin_request_type", "103".toString());
     
     handleOrderingFiRole(randomOrderingFI, orderingFiPercentage, currentBic);
 }
