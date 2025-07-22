@@ -1,5 +1,9 @@
 import java.util.concurrent.ThreadLocalRandom
 
+// Debug Groovy version and environment
+log.info("Groovy Version: ${GroovySystem.getVersion()}")
+log.info("JMeter JSR223 Script Starting")
+
 // Configuration maps for message types and parameters
 final def MESSAGE_TYPES = [
     ISO: [
@@ -36,6 +40,15 @@ final def ACCOUNT_GENERATION = [
     fallbackAccount: 'FALLBACK00001'
 ]
 
+// Early check for ACCOUNT_GENERATION
+if (!binding.hasVariable('ACCOUNT_GENERATION')) {
+    log.error("ACCOUNT_GENERATION map is undefined. Check script for missing or commented-out definition.")
+    vars.put('account_creditor', ACCOUNT_GENERATION?.fallbackAccount ?: 'FALLBACK00001')
+    vars.put('account_debtor', ACCOUNT_GENERATION?.fallbackAccount ?: 'FALLBACK00001')
+    return
+}
+log.info("ACCOUNT_GENERATION defined: ${ACCOUNT_GENERATION}")
+
 // Utility function to get random number
 def randomInt(int min, int max) {
     ThreadLocalRandom.current().nextInt(min, max + 1)
@@ -68,10 +81,6 @@ def setMessageVars(String prefix, Map config, String messageFile = null, String 
 
 // Utility function to generate account number
 def generateAccountNumber(String bic) {
-    if (!ACCOUNT_GENERATION) {
-        log.error("ACCOUNT_GENERATION map is undefined, using fallback account: ${ACCOUNT_GENERATION?.fallbackAccount ?: 'FALLBACK00001'}")
-        return ACCOUNT_GENERATION?.fallbackAccount ?: 'FALLBACK00001'
-    }
     if (!bic || bic.length() < 8) {
         log.warn("Invalid BIC for account generation: ${bic}, using fallback: ${ACCOUNT_GENERATION.fallbackAccount}")
         return ACCOUNT_GENERATION.fallbackAccount
@@ -159,6 +168,3 @@ if (selectedMessage.orderingFiRatioVar && randomNumbers.orderingFi < getIntVar(s
 } else if (selectedMessage.orderingFiRatioVar) {
     log.info("Setting NOT Ordering FI role")
 }
-
-// Debug Groovy version
-log.info("Groovy Version: ${GroovySystem.getVersion()}")
