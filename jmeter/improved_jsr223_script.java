@@ -68,6 +68,10 @@ def setMessageVars(String prefix, Map config, String messageFile = null, String 
 
 // Utility function to generate account number
 def generateAccountNumber(String bic) {
+    if (!ACCOUNT_GENERATION) {
+        log.error("ACCOUNT_GENERATION map is undefined, using fallback account: ${ACCOUNT_GENERATION?.fallbackAccount ?: 'FALLBACK00001'}")
+        return ACCOUNT_GENERATION?.fallbackAccount ?: 'FALLBACK00001'
+    }
     if (!bic || bic.length() < 8) {
         log.warn("Invalid BIC for account generation: ${bic}, using fallback: ${ACCOUNT_GENERATION.fallbackAccount}")
         return ACCOUNT_GENERATION.fallbackAccount
@@ -155,3 +159,6 @@ if (selectedMessage.orderingFiRatioVar && randomNumbers.orderingFi < getIntVar(s
 } else if (selectedMessage.orderingFiRatioVar) {
     log.info("Setting NOT Ordering FI role")
 }
+
+// Debug Groovy version
+log.info("Groovy Version: ${GroovySystem.getVersion()}")
