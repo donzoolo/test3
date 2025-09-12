@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Interaction Recorder & Replayer",
+  "version": "1.0",
+  "description": "Records and replays user interactions with screenshots.",
+  "permissions": ["activeTab", "scripting", "tabs", "downloads", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
