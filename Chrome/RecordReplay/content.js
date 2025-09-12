@@ -14,6 +14,34 @@ function getSelector(el) {
   }
   return `html${path.slice(3)}`; // Simple CSS-like path
 }
+// Choose the best locator for an element
+function getLocator(element) {
+  if (element.hasAttribute("data-locator")) {
+    return { type: "data-locator", value: element.getAttribute("data-locator") };
+  } else if (element.id) {
+    return { type: "id", value: element.id };
+  } else {
+    return { type: "xpath", value: getXPath(element) };
+  }
+}
+
+// Simple XPath generator (fallback only)
+function getXPath(element) {
+  if (element === document.body) {
+    return '/html/body';
+  }
+  let ix = 0;
+  const siblings = element.parentNode ? element.parentNode.childNodes : [];
+  for (let i = 0; i < siblings.length; i++) {
+    const sibling = siblings[i];
+    if (sibling.nodeType === 1 && sibling.tagName === element.tagName) {
+      ix++;
+      if (sibling === element) {
+        return getXPath(element.parentNode) + '/' + element.tagName.toLowerCase() + '[' + ix + ']';
+      }
+    }
+  }
+}
 
 // Helper: Wait for DOM stability (Angular-friendly)
 function waitForStable(timeout = 5000) {
