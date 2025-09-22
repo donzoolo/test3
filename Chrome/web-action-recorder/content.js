@@ -46,7 +46,11 @@ async function replay(replayActions) {
 
     if (act.action === 'click') {
       if (act.locator.type === 'css') {
-        element = document.querySelector(act.locator.value);
+        try {
+          element = document.querySelector(act.locator.value);
+        } catch (e) {
+          console.error('Invalid CSS selector:', act.locator.value, e);
+        }
       } else if (act.locator.type === 'xpath') {
         element = document.evaluate(act.locator.value, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
       }
@@ -67,26 +71,38 @@ async function replay(replayActions) {
   }
 }
 
-function getLocator(el) {
-  const preferredAttrs = ['data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
-  for (let attr of preferredAttrs) {
-    if (el.hasAttribute(attr)) {
-      return {type: 'css', value: `[${attr}="${el.getAttribute(attr)}"]`};
+function getLocator(target) {
+  const preferredAttrs = ['data-locator', 'data-testid', 'data-test-id', 'data-test', 'data-qa', 'data-cy'];
+  let current = target;
+
+  // Traverse up the DOM until <body> or an element with a preferred attribute/id is found
+  while (current && current.tagName !== 'BODY') {
+    // Check for preferred data attributes
+    for (let attr of preferredAttrs) {
+      if (current.hasAttribute(attr)) {
+        return {type: 'css', value: `[${attr}="${cssEscape(current.getAttribute(attr))}"]`};
+      }
     }
+
+    // Check for other data-* attributes
+    const dataAttrs = Array.from(current.attributes).filter(a => a.name.startsWith('data-') && !preferredAttrs.includes(a.name));
+    if (dataAttrs.length > 0) {
+      dataAttrs.sort((a, b) => a.name.localeCompare(b.name));
+      const attr = dataAttrs[0];
+      return {type: 'css', value: `[${attr.name}="${cssEscape(attr.value)}"]`};
+    }
+
+    // Check for id
+    if (current.id) {
+      // Use [id="value"] to avoid invalid CSS selector issues with numeric IDs
+      return {type: 'css', value: `[id="${cssEscape(current.id)}"]`};
+    }
+
+    current = current.parentElement;
   }
 
-  const dataAttrs = Array.from(el.attributes).filter(a => a.name.startsWith('data-') && !preferredAttrs.includes(a.name));
-  if (dataAttrs.length > 0) {
-    dataAttrs.sort((a, b) => a.name.localeCompare(b.name));
-    const attr = dataAttrs[0];
-    return {type: 'css', value: `[${attr.name}="${attr.value}"]`};
-  }
-
-  if (el.id) {
-    return {type: 'css', value: `#${el.id}`};
-  }
-
-  return {type: 'xpath', value: getXPathOfElement(el)};
+  // Fallback to XPath if no suitable attributes found
+  return {type: 'xpath', value: getXPathOfElement(target)};
 }
 
 function getXPathOfElement(elt) {
@@ -114,4 +130,14 @@ function debounce(func, wait) {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
+}
+
+// CSS escape function to handle invalid selectors (e.g., numeric IDs)
+function cssEscape(value) {
+  if (typeof CSS !== 'undefined' && CSS.escape) {
+    return CSS.escape(value);
+  }
+  // Fallback for older browsers
+  return value.replace(/([\\|!#$%&'()*+,./:;<=>?@[\]^{}`~])/g, '\\$1')
+              .replace(/^(\d)/, '\\3$1 ');
 }
