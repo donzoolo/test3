@@ -71,8 +71,8 @@ async function replay(replayActions) {
       window.scrollTo(act.x, act.y);
     }
 
-    // Fixed wait
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Increased wait to avoid screenshot quota limit
+    await new Promise(resolve => setTimeout(resolve, 2500));
 
     // Take screenshot
     console.log(`Requesting screenshot: screenshot_${i + 1}.png`);
