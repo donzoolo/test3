@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Web Action Recorder</title>
+  <style>
+    body { width: 300px; padding: 10px; font-family: Arial; }
+    button { margin: 5px 0; padding: 5px; width: 100%; }
+    input { width: 100%; }
+  </style>
+</head>
+<body>
+  <button id="start">Start Recording</button>
+  <button id="stop">Stop Recording</button>
+  <input type="file" id="fileInput" accept=".json">
+  <button id="replay">Replay</button>
+  <div id="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

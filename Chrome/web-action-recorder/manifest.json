@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Web Action Recorder",
+  "version": "1.0",
+  "description": "Records and replays web actions with screenshots",
+  "permissions": ["activeTab", "scripting", "downloads", "tabs", "storage"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
