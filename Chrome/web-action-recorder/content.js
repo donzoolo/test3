@@ -20,8 +20,22 @@ function startRecording() {
 
   clickListener = (e) => {
     const locator = getLocator(e.target);
+    const currentUrl = window.location.href;
+
+    // Temporarily push a click action
     actions.push({action: 'click', locator});
-    console.log('Recorded action: click', locator);
+
+    // Check after a short delay if URL changed
+    setTimeout(() => {
+      if (window.location.href !== currentUrl) {
+        // Replace the last action with navigate
+        actions.pop();
+        actions.push({action: 'navigate', url: window.location.href});
+        console.log('Detected navigation after click, recorded as navigate:', window.location.href);
+      } else {
+        console.log('No navigation, recorded as click:', locator);
+      }
+    }, 1000);  // 1s delay to allow navigation to occur
   };
   window.addEventListener('click', clickListener, true);
 
@@ -66,6 +80,9 @@ async function replay(replayActions) {
       } else {
         console.error('Element not found for click:', act.locator);
       }
+    } else if (act.action === 'navigate') {
+      console.log('Navigating to:', act.url);
+      window.location.href = act.url;
     } else if (act.action === 'scroll') {
       console.log('Scrolling to:', {x: act.x, y: act.y});
       window.scrollTo(act.x, act.y);
