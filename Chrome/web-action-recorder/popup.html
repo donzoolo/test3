@@ -6,6 +6,7 @@
     body { width: 300px; padding: 10px; font-family: Arial; }
     button { margin: 5px 0; padding: 5px; width: 100%; }
     input { width: 100%; }
+    label { display: block; margin-top: 10px; }
   </style>
 </head>
 <body>
@@ -13,6 +14,10 @@
   <button id="stop">Stop Recording</button>
   <input type="file" id="fileInput" accept=".json">
   <button id="replay">Replay</button>
+  <label>Max Depth: <input type="number" id="maxDepth" value="5"></label>
+  <label>Wait Timeout (ms): <input type="number" id="waitTimeout" value="5000"></label>
+  <label>Post-Action Delay (ms): <input type="number" id="postDelay" value="500"></label>
+  <button id="saveConfig">Save Config</button>
   <div id="status"></div>
   <script src="popup.js"></script>
 </body>

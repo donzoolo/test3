@@ -41,6 +41,25 @@ document.getElementById('replay').addEventListener('click', () => {
   });
 });
 
+document.getElementById('saveConfig').addEventListener('click', () => {
+  const config = {
+    maxDepth: parseInt(document.getElementById('maxDepth').value, 10),
+    waitTimeout: parseInt(document.getElementById('waitTimeout').value, 10),
+    postDelay: parseInt(document.getElementById('postDelay').value, 10),
+  };
+  chrome.storage.sync.set({config}, () => {
+    updateStatus('Config saved');
+  });
+});
+
+// Load saved config on open
+chrome.storage.sync.get('config', (data) => {
+  const config = data.config || {maxDepth: 5, waitTimeout: 5000, postDelay: 500};
+  document.getElementById('maxDepth').value = config.maxDepth;
+  document.getElementById('waitTimeout').value = config.waitTimeout;
+  document.getElementById('postDelay').value = config.postDelay;
+});
+
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'recordingData') {
     const json = JSON.stringify(msg.actions, null, 2);
