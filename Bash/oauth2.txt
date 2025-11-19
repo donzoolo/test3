@@ -75,3 +75,103 @@ Edit the configuration section at the top with your actual values
 Run: ./swift_jwt_token.sh
 
 curl -H "Authorization: Bearer xisS2RfQ9A9GQ5BKv8dFuwelM15r" https://sandbox.swift.com/some-api-endpoint
+
+
+
+#!/bin/bash
+set -euo pipefail
+
+# ==================== CONFIGURATION ====================
+P12_FILE="your-certificate.p12"              # ← CHANGE THIS
+P12_PASSWORD="your_p12_password"             # ← CHANGE THIS (or "" if none)
+CONSUMER_KEY="your_consumer_key"             # ← CHANGE THIS
+CONSUMER_SECRET="your_consumer_secret"       # ← CHANGE THIS
+SCOPE="payment.initiation.v5"                 # ← CHANGE THIS (example)
+ENV="sandbox"                                 # ← "sandbox" or "production"
+# =======================================================
+
+# Token endpoint + mutual TLS handling
+if [ "$ENV" = "production" ]; then
+    TOKEN_ENDPOINT="https://api.swift.com/oauth2/v1/token"
+    CERT_OPTS="--cert-type P12 --cert $P12_FILE:$P12_PASSWORD --pass $P12_PASSWORD"
+else
+    TOKEN_ENDPOINT="https://sandbox.swift.com/oauth2/v1/token"
+    CERT_OPTS=""
+fi
+
+echo "=== SWIFT JWT Bearer Token Request ==="
+echo "Environment : $ENV"
+echo "Endpoint    : $TOKEN_ENDPOINT"
+echo "Scope       : $SCOPE"
+echo
+
+# ============ Safety checks ============
+echo "Checking .p12 file..."
+[ -f "$P12_FILE" ] || { echo "ERROR: $P12_FILE not found"; exit 1; }
+[ -r "$P12_FILE" ] || { echo "ERROR: $P12_FILE not readable"; exit 1; }
+
+if ! openssl pkcs12 -in "$P12_FILE" -passin pass:"$P12_PASSWORD" -nokeys >/dev/null 2>&1; then
+    echo "ERROR: Wrong password or corrupted .p12 file"
+    exit 1
+fi
+echo ".p12 file is readable and password is correct"
+echo
+
+# ============ Extract private key (in memory) ============
+PRIVATE_KEY=$(openssl pkcs12 -in "$P12_FILE" -nocerts -nodes -passin pass:"$P12_PASSWORD" 2>/dev/null)
+
+# ============ Extract ONLY the leaf certificate for x5c (critical!) ============
+LEAF_CERT_DER=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | openssl x509 -outform DER)
+X5C=$(echo "$LEAF_CERT_DER" | base64 -w 0)
+
+# ============ Extract subject DN from the same leaf cert ============
+SUBJECT=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | \
+          openssl x509 -noout -subject | sed 's/^subject=//' | sed 's/^[[:space:]]*//')
+
+echo "Using subject DN as 'sub': $SUBJECT"
+echo "x5c length: ${#X5C} chars (should be ~1700–1900)"
+echo
+
+# ============ Build JWT ============
+ISS="$CONSUMER_KEY"
+AUD="$TOKEN_ENDPOINT"
+JTI=$(openssl rand -hex 16)
+IAT=$(date +%s)
+EXP=$((IAT + 300))  # 5 minutes
+
+HEADER_RAW="{\"alg\":\"RS256\",\"typ\":\"JWT\",\"x5c\":[\"$X5C\"]}"
+PAYLOAD_RAW="{\"iss\":\"$ISS\",\"sub\":\"$SUBJECT\",\"aud\":\"$AUD\",\"jti\":\"$JTI\",\"iat\":$IAT,\"exp\":$EXP}"
+
+HEADER=$(echo -n "$HEADER_RAW"   | base64 -w 0 | tr '/+' '_-' | tr -d '=')
+PAYLOAD=$(echo -n "$PAYLOAD_RAW" | base64 -w 0 | tr '/+' '_-' | tr -d '=')
+SIGNING_INPUT="$HEADER.$PAYLOAD"
+
+SIGNATURE=$(echo -n "$SIGNING_INPUT" | \
+            openssl dgst -sha256 -sign <(echo "$PRIVATE_KEY") | \
+            base64 -w 0 | tr '/+' '_-' | tr -d '=') || \
+            { echo "ERROR: Signing failed"; exit 1; }
+
+JWT="$HEADER.$PAYLOAD.$SIGNATURE"
+
+echo "JWT created (first 120 chars): ${JWT:0:120}..."
+echo
+
+# ============ Basic Auth ============
+BASIC_AUTH=$(echo -n "$CONSUMER_KEY:$CONSUMER_SECRET" | base64 -w 0)
+
+# ============ Final request (very verbose) ============
+echo "=== Sending request (with mutual TLS: $CERT_OPTS) ==="
+echo
+
+curl -v --fail-with-body $CERT_OPTS \
+  -X POST "$TOKEN_ENDPOINT" \
+  -H "Authorization: Basic $BASIC_AUTH" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
+  --data-urlencode "assertion=$JWT" \
+  --data-urlencode "scope=$SCOPE"
+
+echo
+echo "=== Done ==="
+echo "If you see JSON with access_token → SUCCESS!"
+echo "If you see an error → copy-paste it here and I'll fix it in 10 seconds."
