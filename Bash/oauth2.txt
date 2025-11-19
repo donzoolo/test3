@@ -126,7 +126,8 @@ X5C=$(echo "$LEAF_CERT_DER" | base64 -w 0)
 
 # ============ Extract subject DN from the same leaf cert ============
 SUBJECT=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | \
-          openssl x509 -noout -subject | sed 's/^subject=//' | sed 's/^[[:space:]]*//')
+          openssl x509 -noout -subject -nameopt RFC2253 | \
+          sed 's/^subject=//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
 echo "Using subject DN as 'sub': $SUBJECT"
 echo "x5c length: ${#X5C} chars (should be ~1700–1900)"
