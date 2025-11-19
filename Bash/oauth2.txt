@@ -1,0 +1,77 @@
+#!/bin/bash
+# ================================================
+# SWIFT JWT Bearer token request using .p12 + bash + openssl + curl
+# Works on any modern Linux (Ubuntu, RHEL, etc.)
+# ================================================
+
+# --- YOUR CONFIGURATION (replace these) ---
+P12_FILE="your-certificate.p12"          # Path to your .p12 file
+P12_PASSWORD="your_p12_password"         # Password for the .p12 (leave empty if none: "")
+CONSUMER_KEY="your_consumer_key_here"
+CONSUMER_SECRET="your_consumer_secret_here"
+SCOPE="your.required.scope.here"         # e.g. payment.initiation.v5
+ENV="sandbox"                            # or "production"
+
+# Token endpoint
+if [ "$ENV" = "production" ]; then
+    TOKEN_ENDPOINT="https://api.swift.com/oauth2/v1/token"
+else
+    TOKEN_ENDPOINT="https://sandbox.swift.com/oauth2/v1/token"
+fi
+
+# --- 1. Extract private key and certificate from .p12 in memory ---
+# Private key (PEM format, no password prompt after this)
+PRIVATE_KEY=$(openssl pkcs12 -in "$P12_FILE" -nocerts -nodes -passin pass:"$P12_PASSWORD" 2>/dev/null)
+
+# X.509 certificate in base64 (without BEGIN/END lines) for x5c header
+X5C=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | \
+      openssl x509 -outform DER | base64 -w 0)
+
+# --- 2. JWT claims and headers ---
+ISS="$CONSUMER_KEY"
+SUB=$(openssl pkcs12 -in "$P12_FILE" -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | \
+      openssl x509 -noout -subject | sed 's/^subject=//')   # Exact subject DN
+AUD="$TOKEN_ENDPOINT"
+JTI=$(openssl rand -hex 16)
+IAT=$(date +%s)
+EXP=$((IAT + 300))   # 5 minutes validity
+
+# JWT Header (RS256 + x5c chain - SWIFT requires the signing cert in x5c)
+HEADER_RAW='{"alg":"RS256","typ":"JWT","x5c":["'"$X5C"'"]}'
+HEADER=$(echo -n "$HEADER_RAW" | base64 -w 0 | tr '/+' '_-' | tr -d '=')
+
+# JWT Payload
+PAYLOAD_RAW='{"iss":"'"$ISS"'","sub":"'"$SUB"'","aud":"'"$AUD"'","jti":"'"$JTI"'","iat":'"$IAT"',"exp":'"$EXP"'}'
+PAYLOAD=$(echo -n "$PAYLOAD_RAW" | base64 -w 0 | tr '/+' '_-' | tr -d '=')
+
+# --- 3. Sign the JWT (RS256) ---
+SIGNING_INPUT="$HEADER.$PAYLOAD"
+
+SIGNATURE=$(echo -n "$SIGNING_INPUT" | \
+            openssl dgst -sha256 -sign <(echo "$PRIVATE_KEY") | \
+            base64 -w 0 | tr '/+' '_-' | tr -d '=')
+
+JWT="$HEADER.$PAYLOAD.$SIGNATURE"
+
+# --- 4. Basic Auth for client authentication ---
+BASIC_AUTH=$(echo -n "${CONSUMER_KEY}:${CONSUMER_SECRET}" | base64 -w 0)
+
+# --- 5. Request access_token ---
+echo "Requesting token from $TOKEN_ENDPOINT ..."
+echo "JWT (first 100 chars): ${JWT:0:100}..."
+
+curl -s -X POST "$TOKEN_ENDPOINT" \
+  -H "Authorization: Basic $BASIC_AUTH" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer" \
+  -d "assertion=$JWT" \
+  -d "scope=$SCOPE" | jq .
+
+# If jq is not installed, remove "| jq ." for raw JSON output
+
+Save as swift_jwt_token.sh
+Make executable: chmod +x swift_jwt_token.sh
+Edit the configuration section at the top with your actual values
+Run: ./swift_jwt_token.sh
+
+curl -H "Authorization: Bearer xisS2RfQ9A9GQ5BKv8dFuwelM15r" https://sandbox.swift.com/some-api-endpoint
