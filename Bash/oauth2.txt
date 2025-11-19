@@ -121,10 +121,10 @@ echo
 PRIVATE_KEY=$(openssl pkcs12 -in "$P12_FILE" -nocerts -nodes -passin pass:"$P12_PASSWORD" 2>/dev/null)
 
 # ============ Extract ONLY the leaf certificate for x5c (critical!) ============
-LEAF_CERT_DER=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | openssl x509 -outform DER)
-X5C=$(echo "$LEAF_CERT_DER" | base64 -w 0)
+LEAF_PEM=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | openssl x509)
+X5C=$(echo "$LEAF_PEM" | sed -n '/-----BEGIN CERTIFICATE-----/d; /-----END CERTIFICATE-----/d; p' | tr -d '\r\n ')
 
-# ============ Extract subject DN from the same leaf cert ============
+# 2. subject – Postman-exact version
 SUBJECT=$(openssl pkcs12 -in "$P12_FILE" -clcerts -nokeys -passin pass:"$P12_PASSWORD" 2>/dev/null | \
           openssl x509 -noout -subject -nameopt RFC2253,sep_comma_plus,utf8 | \
           sed 's/^subject=//' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr '+' ',' )
