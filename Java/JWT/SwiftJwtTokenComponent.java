@@ -46,13 +46,6 @@ public class SwiftJwtTokenComponent {
     private String x5cHeader;
     private String subjectDn;
 
-    // Must be injected in the Service, but we define the logic here
-    public String getTokenEndpoint(String env) {
-        return "production".equals(env) ? 
-            "https://api.swift.com/oauth2/v1/token" : 
-            "https://sandbox.swift.com/oauth2/v1/token";
-    }
-
     @PostConstruct
     public void initSecurityPrimitives() throws Exception {
         logger.info("Initializing Swift security primitives...");
@@ -68,6 +61,7 @@ public class SwiftJwtTokenComponent {
     
     /**
      * Builds and signs the JWT assertion required for the OAuth token request.
+     * @param tokenEndpoint The URL of the token endpoint, used as the 'aud' (Audience) claim.
      */
     public String buildSignedJwt(String tokenEndpoint) throws Exception {
         long now = Instant.now().getEpochSecond();
@@ -75,7 +69,7 @@ public class SwiftJwtTokenComponent {
         // 1. Header (contains x5c extracted during init)
         String header = "{\"alg\":\"RS256\",\"typ\":\"JWT\",\"x5c\":[\"" + x5cHeader + "\"]}";
         
-        // 2. Payload (uses consumerKey and subjectDn extracted during init)
+        // 2. Payload (uses consumerKey, subjectDn, and the provided tokenEndpoint)
         String payload = String.format(
             "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"%s\",\"jti\":\"%s\",\"iat\":%d,\"exp\":%d}",
             consumerKey, subjectDn, tokenEndpoint,
@@ -97,6 +91,7 @@ public class SwiftJwtTokenComponent {
     
     public String getConsumerKey() { return consumerKey; }
     public String getP12Password() { return p12Password; }
+    public String getP12File() { return p12File; } // Added getter for mTLS setup in the service
     public String getScope() { return scope; }
     public X509Certificate getLeafCert() { return leafCert; }
     

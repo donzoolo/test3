@@ -1,26 +1,3 @@
-package com.example.api;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.net.ssl.SSLContext;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyStore;
-import javax.net.ssl.KeyManagerFactory;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Base64;
-
-
 @Service
 public class SwiftApiGatewayService {
 
@@ -31,7 +8,7 @@ public class SwiftApiGatewayService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private volatile String accessToken = null; // Caches the token for re-use
 
-    // Fixed headers injected directly via @Value
+    // Configuration values injected directly via @Value
     @Value("${swift.institutionHeader:AAAABBBB}")
     private String institutionHeader;
     @Value("${swift.hostHeader:api-test.something.com}")
@@ -40,8 +17,8 @@ public class SwiftApiGatewayService {
     private String consumerSecret;
     @Value("${swift.env}")
     private String env;
-
-    private final String TOKEN_ENDPOINT;
+    @Value("${swift.tokenEndpoint}") // New value injected from YAML
+    private String TOKEN_ENDPOINT;
 
     /**
      * Constructor injects the security component and sets up the HttpClient based on environment.
@@ -49,8 +26,7 @@ public class SwiftApiGatewayService {
     public SwiftApiGatewayService(SwiftJwtTokenComponent jwtTokenComponent) {
         this.jwtTokenComponent = jwtTokenComponent;
 
-        // Determine the token endpoint based on the injected environment property
-        TOKEN_ENDPOINT = jwtTokenComponent.getTokenEndpoint(env);
+        // TOKEN_ENDPOINT is now injected by Spring via @Value
         logger.debug("Token endpoint set to: {}", TOKEN_ENDPOINT);
 
         // Build HttpClient with mutual TLS logic only if production
@@ -61,16 +37,12 @@ public class SwiftApiGatewayService {
                 
                 // Initialize KeyManagerFactory and SSLContext using the component's primitives
                 KeyStore ks = KeyStore.getInstance("PKCS12");
-                // NOTE: The loading path below is likely incorrect as the getSerialNumber().toString() doesn't represent the file path.
-                // It's kept for logical consistency with the previous version, but should be checked against real path/alias logic.
-                // Assuming jwtTokenComponent.getP12File() would be needed here if the entire keystore object wasn't available.
-                ks.load(Files.newInputStream(Paths.get(jwtTokenComponent.getLeafCert().getSerialNumber().toString())), 
+                // NOTE: Using p12File from the component for the actual file path.
+                // The previous usage of getSerialNumber().toString() was incorrect for file pathing.
+                ks.load(Files.newInputStream(Paths.get(jwtTokenComponent.getP12File())), 
                         jwtTokenComponent.getP12Password().toCharArray());
                 
                 KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                // The init method needs the full KeyStore instance, not just the name. 
-                // The previous implementation was also syntactically incorrect here. 
-                // A better approach would be to pass the loaded KeyStore object from the component.
                 kmf.init(ks, jwtTokenComponent.getP12Password().toCharArray());
 
                 SSLContext sslContext = SSLContext.getInstance("TLS");
@@ -106,7 +78,7 @@ public class SwiftApiGatewayService {
     private String fetchNewAccessToken() throws Exception {
         logger.info("Fetching new access token for environment: {}", env);
         
-        // 1. Build JWT using the component
+        // 1. Build JWT using the component and pass the injected TOKEN_ENDPOINT as the audience (aud)
         String jwt = jwtTokenComponent.buildSignedJwt(TOKEN_ENDPOINT);
         logger.debug("JWT assertion built (length: {})", jwt.length());
         
