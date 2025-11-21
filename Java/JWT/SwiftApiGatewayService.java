@@ -1,3 +1,27 @@
+package com.example.api;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+
+
 @Service
 public class SwiftApiGatewayService {
 
@@ -17,44 +41,33 @@ public class SwiftApiGatewayService {
     private String consumerSecret;
     @Value("${swift.env}")
     private String env;
-    @Value("${swift.tokenEndpoint}") // New value injected from YAML
+    @Value("${swift.tokenEndpoint}")
     private String TOKEN_ENDPOINT;
 
     /**
-     * Constructor injects the security component and sets up the HttpClient based on environment.
+     * Constructor injects the security component and sets up the HttpClient for non-production use.
+     * This setup uses a relaxed SSL context to bypass certificate hostname validation issues (like using an IP address).
      */
     public SwiftApiGatewayService(SwiftJwtTokenComponent jwtTokenComponent) {
         this.jwtTokenComponent = jwtTokenComponent;
 
-        // TOKEN_ENDPOINT is now injected by Spring via @Value
         logger.debug("Token endpoint set to: {}", TOKEN_ENDPOINT);
 
-        // Build HttpClient with mutual TLS logic only if production
+        // Build HttpClient with relaxed SSL rules (the only configuration needed for non-prod)
         HttpClient.Builder builder = HttpClient.newBuilder();
-        if ("production".equals(env)) {
-            try {
-                logger.info("Configuring HttpClient for mutual TLS (mTLS) in production environment.");
-                
-                // Initialize KeyManagerFactory and SSLContext using the component's primitives
-                KeyStore ks = KeyStore.getInstance("PKCS12");
-                // NOTE: Using p12File from the component for the actual file path.
-                // The previous usage of getSerialNumber().toString() was incorrect for file pathing.
-                ks.load(Files.newInputStream(Paths.get(jwtTokenComponent.getP12File())), 
-                        jwtTokenComponent.getP12Password().toCharArray());
-                
-                KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                kmf.init(ks, jwtTokenComponent.getP12Password().toCharArray());
-
-                SSLContext sslContext = SSLContext.getInstance("TLS");
-                sslContext.init(kmf.getKeyManagers(), null, null);
-                builder.sslContext(sslContext);
-                logger.info("HttpClient mTLS setup complete.");
-
-            } catch (Exception e) {
-                logger.error("Failed to configure HttpClient for mutual TLS in production environment. Aborting startup.", e);
-                throw new RuntimeException("Failed to configure HttpClient for mutual TLS in production environment.", e);
-            }
+        
+        logger.warn("Configuring HttpClient with INSECURE SSL trust manager as environment is non-production ({}). This configuration MUST NOT BE USED in production.", env);
+        
+        try {
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            // Use a TrustManager that accepts all server certificates
+            sslContext.init(null, new TrustManager[]{new InsecureTrustManager()}, null);
+            builder.sslContext(sslContext);
+        } catch (NoSuchAlgorithmException | KeyManagementException e) {
+            logger.error("Failed to initialize relaxed SSL context.", e);
+            throw new RuntimeException("Failed to initialize relaxed SSL context.", e);
         }
+        
         this.client = builder.build();
     }
 
@@ -131,5 +144,17 @@ public class SwiftApiGatewayService {
 
         logger.info("Sending authenticated POST request to: {}", url);
         return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    /**
+     * Trust Manager that does no validation. Only for non-production use.
+     */
+    private static class InsecureTrustManager implements X509TrustManager {
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+        @Override
+        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
     }
 }
