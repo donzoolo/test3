@@ -33,14 +33,12 @@ public class SwiftApiGatewayService {
     private volatile String accessToken = null; // Caches the token for re-use
 
     // Configuration values injected directly via @Value
-    @Value("${swift.institutionHeader:AAAABBBB}")
-    private String institutionHeader;
-    @Value("${swift.hostHeader:api-test.something.com}")
-    private String hostHeader;
+    // institutionHeader is now hardcoded as requested
+    private final String institutionHeader = "AABBCCDD";
+    
     @Value("${swift.consumerSecret}")
     private String consumerSecret;
-    @Value("${swift.env}")
-    private String env;
+    // Removed @Value("${swift.env}") private String env;
     @Value("${swift.tokenEndpoint}")
     private String TOKEN_ENDPOINT;
 
@@ -56,13 +54,19 @@ public class SwiftApiGatewayService {
         // Build HttpClient with relaxed SSL rules (the only configuration needed for non-prod)
         HttpClient.Builder builder = HttpClient.newBuilder();
         
-        logger.warn("Configuring HttpClient with INSECURE SSL trust manager as environment is non-production ({}). This configuration MUST NOT BE USED in production.", env);
+        logger.warn("Configuring HttpClient with INSECURE SSL trust manager. This configuration MUST NOT BE USED in production.");
         
         try {
             SSLContext sslContext = SSLContext.getInstance("TLS");
             // Use a TrustManager that accepts all server certificates
-            sslContext.init(null, new TrustManager[]{new InsecureTrustManager()}, null);
+            TrustManager[] trustAllCerts = new TrustManager[]{new InsecureTrustManager()};
+            sslContext.init(null, trustAllCerts, null);
             builder.sslContext(sslContext);
+
+            // NOTE: Since the tokenEndpoint now uses a DNS name, the Java HttpClient automatically
+            // sets the correct 'Host' header and, given the hosts file fix, the connection should proceed.
+            // Remember to start the JVM with: -Djdk.internal.httpclient.disableHostnameVerification=true
+            
         } catch (NoSuchAlgorithmException | KeyManagementException e) {
             logger.error("Failed to initialize relaxed SSL context.", e);
             throw new RuntimeException("Failed to initialize relaxed SSL context.", e);
@@ -89,10 +93,11 @@ public class SwiftApiGatewayService {
      * Executes the JWT Bearer Token request to get a new access token.
      */
     private String fetchNewAccessToken() throws Exception {
-        logger.info("Fetching new access token for environment: {}", env);
+        logger.info("Fetching new access token.");
         
-        // 1. Build JWT using the component and pass the injected TOKEN_ENDPOINT as the audience (aud)
-        String jwt = jwtTokenComponent.buildSignedJwt(TOKEN_ENDPOINT);
+        // 1. Build JWT using the component. 
+        // The component now generates the 'aud' claim using the canonical host derived from TOKEN_ENDPOINT.
+        String jwt = jwtTokenComponent.buildSignedJwt();
         logger.debug("JWT assertion built (length: {})", jwt.length());
         
         // 2. Basic Auth (Consumer Key:Consumer Secret)
@@ -109,6 +114,8 @@ public class SwiftApiGatewayService {
                 .uri(URI.create(TOKEN_ENDPOINT))
                 .header("Authorization", "Basic " + basicAuth)
                 .header("Content-Type", "application/x-www-form-urlencoded")
+                // Removed X-Forwarded-Host: The Host header is now automatically set by HttpClient
+                // based on the DNS name in TOKEN_ENDPOINT.
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build();
 
@@ -137,7 +144,7 @@ public class SwiftApiGatewayService {
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + token)
-                .header("Host", hostHeader)
+                // Removed manual Host header. HttpClient automatically sets it.
                 .header("Institution", institutionHeader)
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();

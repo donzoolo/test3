@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -39,12 +40,19 @@ public class SwiftJwtTokenComponent {
     private String consumerKey;
     @Value("${swift.scope}")
     private String scope;
+    // Removed hostHeader injection.
+    @Value("${swift.tokenEndpoint}")
+    private String tokenEndpoint; // Injecting tokenEndpoint to derive the Audience claim
     
     // Security primitives cached after initialization
     private PrivateKey privateKey;
     private X509Certificate leafCert;
     private String x5cHeader;
     private String subjectDn;
+
+    // Canonical Audience URL, constructed during initialization
+    private String canonicalAudienceUrl;
+
 
     @PostConstruct
     public void initSecurityPrimitives() throws Exception {
@@ -56,23 +64,29 @@ public class SwiftJwtTokenComponent {
         this.x5cHeader = extractX5c(this.leafCert);
         this.subjectDn = extractSubject(this.leafCert);
         
+        // FIX: Derive the Audience (aud) claim directly from tokenEndpoint by removing the scheme.
+        URI uri = new URI(this.tokenEndpoint);
+        // Concatenate host and path, which is the required scheme-less format for 'aud'
+        this.canonicalAudienceUrl = uri.getHost() + uri.getPath(); 
+        
         logger.info("JWT signing setup complete. Subject DN: {}", subjectDn);
+        logger.info("Canonical Audience (aud) set to: {}", canonicalAudienceUrl);
     }
     
     /**
      * Builds and signs the JWT assertion required for the OAuth token request.
-     * @param tokenEndpoint The URL of the token endpoint, used as the 'aud' (Audience) claim.
+     * The Audience (aud) claim is generated internally using the canonical hostname (hostHeader).
      */
-    public String buildSignedJwt(String tokenEndpoint) throws Exception {
+    public String buildSignedJwt() throws Exception { // ARGUMENT REMOVED
         long now = Instant.now().getEpochSecond();
         
         // 1. Header (contains x5c extracted during init)
         String header = "{\"alg\":\"RS256\",\"typ\":\"JWT\",\"x5c\":[\"" + x5cHeader + "\"]}";
         
-        // 2. Payload (uses consumerKey, subjectDn, and the provided tokenEndpoint)
+        // 2. Payload (uses consumerKey, subjectDn, and the canonical Audience URL)
         String payload = String.format(
             "{\"iss\":\"%s\",\"sub\":\"%s\",\"aud\":\"%s\",\"jti\":\"%s\",\"iat\":%d,\"exp\":%d}",
-            consumerKey, subjectDn, tokenEndpoint,
+            consumerKey, subjectDn, this.canonicalAudienceUrl, // Uses the canonical DNS name URL without scheme
             UUID.randomUUID().toString(), now, now + 300
         );
 
@@ -84,14 +98,17 @@ public class SwiftJwtTokenComponent {
         Signature sig = Signature.getInstance("SHA256withRSA");
         sig.initSign(privateKey);
         sig.update(signingInput.getBytes(StandardCharsets.UTF_8));
-        String signatureB64 = base64Url(new String(Base64.getEncoder().encode(sig.sign())));
+        
+        // Directly apply Base64Url encoding to the raw signature bytes.
+        String signatureB64 = Base64.getUrlEncoder().withoutPadding()
+                                    .encodeToString(sig.sign());
 
         return signingInput + "." + signatureB64;
     }
     
     public String getConsumerKey() { return consumerKey; }
     public String getP12Password() { return p12Password; }
-    public String getP12File() { return p12File; } // Added getter for mTLS setup in the service
+    public String getP12File() { return p12File; } 
     public String getScope() { return scope; }
     public X509Certificate getLeafCert() { return leafCert; }
     
@@ -129,8 +146,8 @@ public class SwiftJwtTokenComponent {
     }
 
     private String extractSubject(X509Certificate cert) {
-        String subject = cert.getSubjectX500Principal()
-            .getName(javax.naming.ldap.Rdn.escapeValue());
+        // Calling getName() without arguments returns the DN string, which is then cleaned by the regex.
+        String subject = cert.getSubjectX500Principal().getName();
         return subject.replaceAll("\\s*=\\s*", "=");
     }
     
