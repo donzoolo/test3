@@ -2,6 +2,7 @@ package com.example.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonInclude; // <-- NEW IMPORT
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
@@ -27,7 +28,7 @@ public class SwiftApiGatewayService {
 
     private final SwiftJwtTokenComponent jwtTokenComponent;
     private final HttpClient client;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper; // <-- Initialized in constructor
     private volatile String accessToken = null; // Caches the token for re-use
 
     // Hardcoded mandatory header
@@ -63,6 +64,10 @@ public class SwiftApiGatewayService {
 
         // Build standard HttpClient.
         this.client = HttpClient.newBuilder().build();
+
+        // KEY FIX: Configure the ObjectMapper to ignore all fields that are null.
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
     /**
@@ -123,8 +128,18 @@ public class SwiftApiGatewayService {
     
     /**
      * Sends a POST request to the payment order endpoint using the cached access token.
+     * The input parameter is now an object, which is serialized to JSON before sending.
+     * Since the ObjectMapper is configured to ignore nulls, fields created by the 
+     * builder that are null will be omitted from the resulting JSON string.
+     * @param markerParam The object containing the payment order details.
+     * @return The HttpResponse from the payment order API.
      */
-    public HttpResponse<String> sendPaymentOrderPost(String jsonBody) throws Exception {
+    public HttpResponse<String> sendPaymentOrderPost(AnMarkerParam markerParam) throws Exception {
+        // 1. Serialize the object into a JSON string using the ObjectMapper
+        String jsonBody = objectMapper.writeValueAsString(markerParam);
+        logger.debug("Payment order JSON body: {}", jsonBody);
+
+        // 2. Send the authenticated request
         return sendAuthenticatedRequest(this.paymentOrderUrl, jsonBody);
     }
 
