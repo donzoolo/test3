@@ -31,6 +31,8 @@ public class SwiftJwtTokenComponent {
 
     private static final Logger logger = LoggerFactory.getLogger(SwiftJwtTokenComponent.class);
 
+    // Removed the duplicated constant. Now it's referenced from SwiftApiGatewayService.
+    
     // Configuration values injected directly
     @Value("${swift.p12File}")
     private String p12File;
@@ -40,9 +42,10 @@ public class SwiftJwtTokenComponent {
     private String consumerKey;
     @Value("${swift.scope}")
     private String scope;
-    // Removed hostHeader injection.
-    @Value("${swift.tokenEndpoint}")
-    private String tokenEndpoint; // Injecting tokenEndpoint to derive the Audience claim
+    
+    // Inject only the base URL
+    @Value("${swift.baseUrl}")
+    private String baseUrl; 
     
     // Security primitives cached after initialization
     private PrivateKey privateKey;
@@ -64,8 +67,11 @@ public class SwiftJwtTokenComponent {
         this.x5cHeader = extractX5c(this.leafCert);
         this.subjectDn = extractSubject(this.leafCert);
         
-        // FIX: Derive the Audience (aud) claim directly from tokenEndpoint by removing the scheme.
-        URI uri = new URI(this.tokenEndpoint);
+        // Construct the full token URL using the injected base URL and the constant from the Service
+        String tokenUrl = this.baseUrl + SwiftApiGatewayService.TOKEN_PATH;
+        
+        // FIX: Derive the Audience (aud) claim directly from tokenUrl by removing the scheme.
+        URI uri = new URI(tokenUrl);
         // Concatenate host and path, which is the required scheme-less format for 'aud'
         this.canonicalAudienceUrl = uri.getHost() + uri.getPath(); 
         
@@ -75,9 +81,10 @@ public class SwiftJwtTokenComponent {
     
     /**
      * Builds and signs the JWT assertion required for the OAuth token request.
-     * The Audience (aud) claim is generated internally using the canonical hostname (hostHeader).
+     * The Audience (aud) claim is generated internally using the canonical URL.
+     * * @param tokenEndpoint The full URL of the token endpoint (used by the service for debug logging)
      */
-    public String buildSignedJwt() throws Exception { // ARGUMENT REMOVED
+    public String buildSignedJwt(String tokenEndpoint) throws Exception { 
         long now = Instant.now().getEpochSecond();
         
         // 1. Header (contains x5c extracted during init)
