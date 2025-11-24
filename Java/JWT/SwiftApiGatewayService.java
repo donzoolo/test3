@@ -33,29 +33,30 @@ public class SwiftApiGatewayService {
     // Hardcoded mandatory header
     private final String institutionHeader = "AABBCCDD";
     
-    @Value("${swift.consumerSecret}")
-    private String consumerSecret;
-    
-    // Inject only the base URL
-    @Value("${swift.baseUrl}")
-    private String baseUrl;
-
+    // These are now final fields, injected via the constructor
+    private final String consumerSecret;
+    private final String baseUrl;
     private final String tokenUrl;
     private final String paymentOrderUrl;
 
 
     /**
-     * Constructor injects the security component and sets up the HttpClient.
-     * * IMPORTANT: This version assumes the test environment's SSL certificate is 
-     * trusted by the default Java trust store. If you encounter SSL handshake errors, 
-     * you must revert to the previous code with the InsecureTrustManager.
+     * Constructor uses injection for all dependencies and configuration values.
+     * This ensures all required fields (@Value and @Autowired) are available before
+     * using them to construct final URL fields.
      */
-    public SwiftApiGatewayService(SwiftJwtTokenComponent jwtTokenComponent) {
+    public SwiftApiGatewayService(
+            SwiftJwtTokenComponent jwtTokenComponent,
+            @Value("${swift.baseUrl}") String baseUrl,
+            @Value("${swift.consumerSecret}") String consumerSecret) {
+        
         this.jwtTokenComponent = jwtTokenComponent;
+        this.baseUrl = baseUrl;
+        this.consumerSecret = consumerSecret;
         
         // Construct the full URLs using the injected base URL and hardcoded paths
-        this.tokenUrl = baseUrl + TOKEN_PATH;
-        this.paymentOrderUrl = baseUrl + PAYMENT_ORDER_PATH;
+        this.tokenUrl = this.baseUrl + TOKEN_PATH;
+        this.paymentOrderUrl = this.baseUrl + PAYMENT_ORDER_PATH;
 
         logger.debug("Token URL set to: {}", tokenUrl);
         logger.debug("Payment Order URL set to: {}", paymentOrderUrl);
