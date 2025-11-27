@@ -1,0 +1,71 @@
+stage('Configure Live Environment') {
+    steps {
+        script {
+            // ------------------------------------------------------------
+            // 1. Get the User's chosen BI Profile (The second part)
+            // ------------------------------------------------------------
+            // Expecting input like: 'p-live-bi-de', 'p-live-bi-pl', 'p-live-bi-us', etc.
+            def userBiProfile = params.additionalProfile 
+
+            // Initialize the site prefix
+            def activeSitePrefix = ""
+
+            // ------------------------------------------------------------
+            // 2. Detect Active Site (EU vs US)
+            // ------------------------------------------------------------
+            if (env.TARGET_ENV == 'LIVE') {
+                echo "LIVE Environment detected. Determining Active Site..."
+
+                def euUrl = "https://EUPORTAL:7443/rest/status/"
+                def usUrl = "https://USPORTAL:7443/rest/status/"
+
+                // Check EU Status
+                // Returns 200 if active, 000 if connection refused
+                def euStatus = sh(script: "curl -k -s --connect-timeout 5 -o /dev/null -w '%{http_code}' ${euUrl} || echo '000'", returnStdout: true).trim()
+
+                if (euStatus == '200') {
+                    echo "Active Site: EU"
+                    activeSitePrefix = "p-live-eu"
+                } else {
+                    // If EU failed, check US
+                    echo "EU did not respond (Status: ${euStatus}). Checking US..."
+                    def usStatus = sh(script: "curl -k -s --connect-timeout 5 -o /dev/null -w '%{http_code}' ${usUrl} || echo '000'", returnStdout: true).trim()
+
+                    if (usStatus == '200') {
+                         echo "Active Site: US"
+                         activeSitePrefix = "p-live-us"
+                    } else {
+                        error "CRITICAL: Neither EU nor US sites are reachable. Cannot proceed."
+                    }
+                }
+                
+                // ------------------------------------------------------------
+                // 3. Combine Detected Site + User's Country Profile
+                // ------------------------------------------------------------
+                // This creates: "p-live-eu,p-live-bi-pl" or "p-live-us,p-live-bi-ca"
+                // We use comma separation as required by Spring Profiles
+                def finalProfile = "${activeSitePrefix},${userBiProfile}"
+                
+                // Overwrite the variable used in the Maven command
+                mvnAdditionalParams = """-Dspring.profiles.active="${selectedTarget.profile},${finalProfile}" """
+                
+                echo "------------------------------------------------"
+                echo "Computed Configuration:"
+                echo "  User Request : ${userBiProfile}"
+                echo "  Detected Site: ${activeSitePrefix}"
+                echo "  Final Param  : ${finalProfile}"
+                echo "------------------------------------------------"
+
+            } else {
+                // Non-LIVE environments (DEV, TT, CI) logic remains the same
+                mvnAdditionalParams = """-Dspring.profiles.active="${selectedTarget.profile}${params.additionalProfile ? ',' + params.additionalProfile : ''}" """
+            }
+        }
+    }
+}
+
+stage('Run Tests') {
+    steps {
+        sh "mvn -s $MAVEN_SETTINGS ...... $mvnAdditionalParams test"
+    }
+}
