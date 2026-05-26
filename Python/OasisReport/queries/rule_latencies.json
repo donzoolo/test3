@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "test_name": "JMeter Mimic Latency Check",
+    "bucket_key_path": "performance_by_rule"
+  },
+  "es_query": {
+    "size": 0,
+    "query": {
+      "bool": {
+        "filter": [
+          { "term": { "environment": "load-test" } }
+        ]
+      }
+    },
+    "aggs": {
+      "performance_by_rule": {
+        "terms": {
+          "field": "rule_id.keyword",
+          "size": 100
+        },
+        "aggs": {
+          "current_run": {
+            "filter": { "range": { "timestamp": { "gte": "INJECT_START", "lte": "INJECT_END" } } },
+            "aggs": {
+              "latency_p90": { "percentiles": { "field": "processing_time_ms", "percents": [90.0] } }
+            }
+          },
+          "historical_runs": {
+            "filter": { "range": { "timestamp": { "gte": "INJECT_HIST_START", "lte": "INJECT_END" } } },
+            "aggs": {
+              "historical_p90": { "percentiles": { "field": "processing_time_ms", "percents": [90.0] } }
+            }
+          }
+        }
+      }
+    }
+  }
+}
