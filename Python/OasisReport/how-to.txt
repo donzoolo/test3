@@ -1,0 +1,18 @@
+How to Run This on Windows (PowerShell)
+Open PowerShell, navigate to the directory where your script and configurations live, and execute the following block to check your execution gate.
+
+Step 1: Assign your secret variables locally (omitted from history files)
+PowerShell
+$env:OASIS_USER="your_username"
+$env:OASIS_PASS="your_password"
+Step 2: Fire the Python script execution command
+PowerShell
+python oasis_perf_reporter.py `
+  --url "https://your-oasis-cluster-url:9200" `
+  --index "engine-logs-*" `
+  --start "2026-05-26T07:00:00Z" `
+  --end "2026-05-26T09:00:00Z" `
+  --queries-dir "./queries" `
+  --thresholds "thresholds.json" `
+  --user $env:OASIS_USER `
+  --password $env:OASIS_PASS
